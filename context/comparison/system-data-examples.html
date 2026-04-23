@@ -1,0 +1,2008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>System Data Examples — Inventory, Dataflow, Controller Logic</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0f0f0f;--surface:#181818;--elevated:#1f1f1f;--border:#2a2a2a;--border2:#333;
+      --text:#e8e8e8;--muted:#888;--muted2:#555;--muted3:#3a3a3a;
+      --accent:#5b8ff9;--accent-dim:#1a2540;
+      --green:#4ade80;--green-dim:#0d2d1a;--green-b:#16532e;
+      --yellow:#f59e0b;--yellow-dim:#2d2200;--yellow-b:#78350f;
+      --red:#f87171;--red-dim:#2d0d0d;--red-b:#7f1d1d;
+      --purple:#c084fc;--purple-dim:#1a0d2d;--purple-b:#6b21a8;
+      --teal:#2dd4bf;--teal-dim:#0d2424;--teal-b:#0f5151;
+      --orange:#fb923c;--orange-dim:#2d1500;--orange-b:#7c2d12;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    }
+    body{background:var(--bg);color:var(--text);padding:36px 24px 80px;line-height:1.6}
+    .container{max-width:1020px;margin:0 auto}
+
+    h1{font-size:22px;font-weight:700;margin-bottom:6px}
+    h2{font-size:16px;font-weight:600;margin-bottom:12px}
+    h3{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px}
+    .subtitle{color:var(--muted);font-size:13px;margin-bottom:28px}
+    .divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+    .note{font-size:11px;color:var(--muted2);font-style:italic;margin-bottom:14px}
+
+    /* Tabs */
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:28px;border-bottom:1px solid var(--border);padding-bottom:14px}
+    .tab{padding:5px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);background:none;border:1px solid transparent;transition:all .15s}
+    .tab:hover{color:var(--accent);border-color:var(--accent)}
+    .tab.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+    .panel{display:none}.panel.active{display:block}
+
+    /* Pills */
+    .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;vertical-align:middle}
+    .pill.service  {background:var(--accent-dim);color:var(--accent);border:1px solid #1e3a5f}
+    .pill.dag      {background:var(--orange-dim);color:var(--orange);border:1px solid var(--orange-b)}
+    .pill.topic    {background:var(--green-dim);color:var(--green);border:1px solid var(--green-b)}
+    .pill.collection{background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple-b)}
+    .pill.cluster  {background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal-b)}
+    .pill.env      {background:#1a1a1a;color:#aaa;border:1px solid #333}
+    .pill.infra    {background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal-b)}
+    .pill.warn     {background:var(--yellow-dim);color:var(--yellow);border:1px solid var(--yellow-b)}
+    .pill.ok       {background:var(--green-dim);color:var(--green);border:1px solid var(--green-b)}
+    .pill.err      {background:var(--red-dim);color:var(--red);border:1px solid var(--red-b)}
+    .pill.stage1   {background:#0d2d1a;color:#4ade80;border:1px solid #16532e}
+    .pill.stage2   {background:#2d2200;color:#f59e0b;border:1px solid #78350f}
+    .pill.stage3   {background:#2d0d0d;color:#f87171;border:1px solid #7f1d1d}
+
+    /* Code blocks */
+    .code-block{background:#111;border:1px solid var(--border2);border-radius:6px;padding:16px;font-size:11.5px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;line-height:1.7;overflow-x:auto;white-space:pre;color:#ccc;display:block;max-width:100%;box-sizing:border-box}
+    .code-block .key{color:#7dd3fc}
+    .code-block .val{color:#86efac}
+    .code-block .str{color:#fca5a5}
+    .code-block .num{color:#fb923c}
+    .code-block .cmt{color:#555;font-style:italic}
+    .code-block .section{color:#c084fc;font-weight:600}
+    .code-block .highlight{background:#2a1f00;border-left:2px solid #f59e0b;padding-left:4px;margin-left:-4px;display:block}
+    .code-block .ann{color:#f59e0b}
+
+    /* Entity row */
+    .entity-row{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+    .entity-row:last-child{border-bottom:none}
+    .entity-name{font-weight:600;min-width:160px}
+    .entity-desc{color:var(--muted);font-size:12px}
+
+    /* Cards */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:7px;overflow:clip;margin-bottom:14px}
+    .card-hdr{padding:9px 14px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;display:flex;gap:10px;align-items:center}
+    .card-body{padding:14px}
+
+    /* Steps */
+    .steps{display:flex;flex-direction:column;gap:0}
+    .step{display:grid;grid-template-columns:36px 1fr;gap:0;position:relative}
+    .step-line{position:absolute;left:17px;top:36px;bottom:0;width:2px;background:var(--border2);z-index:0}
+    .step:last-child .step-line{display:none}
+    .step-num{width:34px;height:34px;border-radius:50%;background:var(--elevated);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--muted);flex-shrink:0;position:relative;z-index:1}
+    .step-num.done{border-color:var(--green);color:var(--green)}
+    .step-num.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+    .step-num.warn{border-color:var(--yellow);color:var(--yellow)}
+    .step-content{padding:4px 0 24px 14px;min-width:0}
+    .step-title{font-size:13px;font-weight:600;margin-bottom:6px}
+    .step-detail{font-size:12px;color:var(--muted);line-height:1.6}
+
+    /* Grid */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+    /* Table */
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
+    thead th{text-align:left;padding:7px 12px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface)}
+    tbody tr{border-bottom:1px solid var(--border)}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover td{background:#141414}
+    tbody td{padding:9px 12px;vertical-align:top}
+    .td-rule{font-weight:600;white-space:nowrap}
+    .td-note{font-size:11.5px;color:var(--muted)}
+
+    /* Alert box */
+    .alert-example{border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:16px}
+    .alert-header{padding:8px 14px;display:flex;gap:10px;align-items:center;font-size:12px;font-weight:600;background:var(--surface);border-bottom:1px solid var(--border)}
+    .alert-body{padding:0}
+    .alert-extracted{padding:10px 14px;background:#111;border-top:1px solid var(--border);font-size:11.5px}
+    .ext-row{display:flex;gap:8px;align-items:center;margin-bottom:4px;font-size:11.5px}
+    .ext-key{color:var(--muted);min-width:120px;font-family:monospace}
+    .ext-val{color:var(--text);font-family:monospace}
+    .ext-label{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;margin-top:2px}
+    .routing-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--accent-dim);color:var(--accent);border:1px solid #1e3a5f}
+
+    /* Context budget */
+    .budget-bar{height:8px;border-radius:4px;background:var(--border2);overflow:hidden;margin:4px 0 2px}
+    .budget-fill{height:100%;border-radius:4px}
+
+    /* Example sub-tabs */
+    .ex-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+    .ex-tab{padding:5px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);background:none;border:1px solid transparent;transition:all .15s}
+    .ex-tab:hover{color:var(--accent);border-color:var(--accent)}
+    .ex-tab.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+    .ex-section{display:none}.ex-section.active{display:block}
+    .ex-title{font-size:12px;color:var(--muted);margin-bottom:16px;padding:8px 12px;background:var(--elevated);border-radius:5px;border-left:3px solid var(--accent)}
+
+    /* Investigation flow diagram */
+    .inv-flow{display:flex;align-items:stretch;gap:0;margin:16px 0 24px;overflow-x:auto;padding-bottom:6px}
+    .inv-node{background:var(--elevated);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;min-width:140px;flex-shrink:0;font-size:12px;text-align:center;display:flex;flex-direction:column;justify-content:space-between;gap:4px}
+    .inv-node.n-alert{border-color:var(--red);background:var(--red-dim)}
+    .inv-node.n-k8s{border-color:var(--green);background:var(--green-dim)}
+    .inv-node.n-obs{border-color:var(--yellow);background:var(--yellow-dim)}
+    .inv-node.n-app{border-color:var(--purple);background:var(--purple-dim)}
+    .inv-node.n-rca{border-color:var(--accent);background:var(--accent-dim)}
+    .inv-node.n-info{border-color:var(--teal);background:var(--teal-dim)}
+    .inv-label{font-weight:700;font-size:13px;margin-bottom:4px}
+    .inv-sub{color:var(--muted);font-size:11px;line-height:1.5;margin-bottom:4px}
+    .inv-conf{font-size:11px;font-weight:700;color:var(--orange);margin-bottom:2px}
+    .inv-time{font-size:10px;color:var(--muted2);margin-top:2px}
+    .inv-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;color:var(--muted2);font-size:22px;min-width:36px;flex-shrink:0;gap:3px}
+    .inv-arrow-label{font-size:10px;color:var(--muted2);white-space:nowrap;text-align:center;line-height:1.3}
+
+    /* Node memory visualization */
+    .node-viz{background:var(--elevated);border:1px solid var(--border2);border-radius:8px;padding:20px;margin:16px 0}
+    .node-viz-header{font-size:13px;font-weight:700;color:var(--teal);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+    .pod-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+    .pod-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:14px}
+    .pod-card-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:7px}
+    .mem-row{margin-bottom:10px}
+    .mem-label{font-size:11px;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
+    .mem-bar-track{height:12px;background:var(--border2);border-radius:5px;overflow:hidden}
+    .mem-bar-fill{height:100%;border-radius:5px;transition:width .3s}
+    .mem-bar-fill.req{background:#4ade80}
+    .mem-bar-fill.lim{background:#f59e0b}
+    .mem-bar-fill.act{background:#f87171}
+    .node-total{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#111;border-radius:7px;margin-top:8px}
+    .total-item{text-align:center}
+    .total-val{font-weight:700;font-size:22px;margin-bottom:4px}
+    .total-label{color:var(--muted);font-size:11px;line-height:1.5}
+    .overcommit-badge{display:inline-block;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:700;background:var(--red-dim);color:var(--red);border:1px solid var(--red-b);margin-top:5px}
+
+    /* Recommendation cards — full width single column for readability */
+    .rec-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:14px}
+    .rec-card{background:var(--elevated);border:1px solid var(--border2);border-radius:7px;padding:16px}
+    .rec-card-hdr{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .rec-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap}
+    .rec-badge.immediate{background:var(--red-dim);color:var(--red);border:1px solid var(--red-b)}
+    .rec-badge.medium{background:var(--yellow-dim);color:var(--yellow);border:1px solid var(--yellow-b)}
+    .rec-badge.longterm{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal-b)}
+    .rec-body{font-size:12px;color:var(--muted);line-height:1.7}
+    .rec-body code{color:var(--text);background:#111;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11.5px}
+    .rec-outcome{font-size:11px;color:var(--green);margin-top:8px;font-style:italic;padding:6px 10px;background:var(--green-dim);border-radius:4px}
+
+    /* Option boxes — full width single column for readability */
+    .option-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+    .option-card{border-radius:8px;padding:18px;border:1px solid var(--border2)}
+    .option-card.option-a{background:#0d2d1a;border-color:var(--green-b)}
+    .option-card.option-b{background:#2d0d0d;border-color:var(--red-b)}
+    .option-hdr{font-size:13px;font-weight:700;margin-bottom:10px}
+    .option-hdr.a{color:var(--green)}.option-hdr.b{color:var(--red)}
+    .option-detail{font-size:12px;color:var(--muted);line-height:1.7}
+    .option-detail code{color:var(--text);background:#111;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11.5px}
+
+    @media(max-width:700px){.grid-2,.grid-3,.pod-row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>System Data Examples</h1>
+  <p class="subtitle">Concrete examples of Inventory, Dataflow Graph, Controller Logic, and full end-to-end flow — illustrated with a real-world stack: bulkFHIR · hl7message · EKS · Airflow · MSK · MongoDB.</p>
+
+  <div class="tabs">
+    <span class="tab active"  onclick="show('alert',this)">Alert &amp; Query Formats</span>
+    <span class="tab"         onclick="show('inventory',this)">Inventory</span>
+    <span class="tab"         onclick="show('graph',this)">Dataflow Graph</span>
+    <span class="tab"         onclick="show('controller',this)">Controller Logic</span>
+    <span class="tab"         onclick="show('e2e',this)">End-to-End Example</span>
+    <span class="tab"         onclick="show('envs',this)">Environments &amp; Clusters</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TAB 1 — ALERT & QUERY FORMATS                   -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="tab-alert" class="panel active">
+    <h2>Alert &amp; Query Input Formats</h2>
+    <p class="note">Four types the controller must handle. For each: raw format → what entities are extracted → what routing path fires.</p>
+
+    <!-- Type 1 -->
+    <div class="alert-example">
+      <div class="alert-header">
+        <span class="pill warn">Type 1</span> Prometheus / Alertmanager Webhook — most structured
+      </div>
+      <div class="code-block">{
+  <span class="key">"version"</span>: <span class="str">"4"</span>,
+  <span class="key">"groupKey"</span>: <span class="str">"{}:{alertname="BulkFHIRProcessingFailures"}"</span>,
+  <span class="key">"alerts"</span>: [{
+    <span class="key">"status"</span>: <span class="str">"firing"</span>,
+    <span class="key">"labels"</span>: {
+      <span class="key">"alertname"</span>:  <span class="str">"BulkFHIRProcessingFailures"</span>,
+      <span class="key">"job"</span>:         <span class="str">"bulkFHIR-processor"</span>,      <span class="ann">← service name → inventory lookup</span>
+      <span class="key">"namespace"</span>:   <span class="str">"data-pipelines"</span>,
+      <span class="key">"cluster"</span>:     <span class="str">"prod-eks-2"</span>,             <span class="ann">← cluster → env config lookup</span>
+      <span class="key">"severity"</span>:    <span class="str">"critical"</span>,
+      <span class="key">"env"</span>:         <span class="str">"prod"</span>
+    },
+    <span class="key">"annotations"</span>: {
+      <span class="key">"description"</span>: <span class="str">"50 messages failed in last 5 min in bulkFHIR processing"</span>,
+      <span class="key">"runbook_url"</span>:  <span class="str">"https://confluence.org/runbooks/bulkFHIR-processor"</span>
+    },
+    <span class="key">"startsAt"</span>: <span class="str">"2026-04-20T10:05:00Z"</span>
+  }]
+}</div>
+      <div class="alert-extracted">
+        <div class="ext-label">Extracted entities</div>
+        <div class="ext-row"><span class="ext-key">entity_type</span><span class="ext-val">"service"</span><span class="pill service">service</span></div>
+        <div class="ext-row"><span class="ext-key">entity_name</span><span class="ext-val">"bulkFHIR-processor"</span></div>
+        <div class="ext-row"><span class="ext-key">cluster</span><span class="ext-val">"prod-eks-2"</span><span class="pill cluster">from labels</span></div>
+        <div class="ext-row"><span class="ext-key">env</span><span class="ext-val">"prod"</span></div>
+        <div class="ext-row"><span class="ext-key">routing_path</span><span class="routing-badge">Inventory lookup → runtime: kubernetes → K8s Worker</span></div>
+      </div>
+    </div>
+
+    <!-- Type 2 -->
+    <div class="alert-example">
+      <div class="alert-header">
+        <span class="pill warn">Type 2</span> MongoDB Metric Alert — ambiguous data-domain alert
+      </div>
+      <div class="code-block">{
+  <span class="key">"alertname"</span>:   <span class="str">"MongoCollectionBacklog"</span>,
+  <span class="key">"labels"</span>: {
+    <span class="key">"collection"</span>: <span class="str">"pdata"</span>,               <span class="ann">← no service info — only collection name</span>
+    <span class="key">"database"</span>:   <span class="str">"processing_db"</span>,
+    <span class="key">"mongo_cluster"</span>: <span class="str">"mongo-cluster-A"</span>,
+    <span class="key">"env"</span>:        <span class="str">"prod"</span>,
+    <span class="key">"severity"</span>:   <span class="str">"warning"</span>
+  },
+  <span class="key">"annotations"</span>: {
+    <span class="key">"description"</span>: <span class="str">"pdata has 50 failed + 50 pending in last 5 min"</span>
+  }
+}</div>
+      <div class="alert-extracted">
+        <div class="ext-label">Extracted entities</div>
+        <div class="ext-row"><span class="ext-key">entity_type</span><span class="ext-val">"collection"</span><span class="pill collection">collection</span></div>
+        <div class="ext-row"><span class="ext-key">entity_name</span><span class="ext-val">"pdata"</span></div>
+        <div class="ext-row"><span class="ext-key">database</span><span class="ext-val">"processing_db"</span></div>
+        <div class="ext-row"><span class="ext-key">service</span><span class="ext-val">unknown — no service in alert</span><span class="pill warn">ambiguous</span></div>
+        <div class="ext-row"><span class="ext-key">routing_path</span><span class="routing-badge">Dataflow Graph lookup → resolve owner → Inventory → Pipeline/K8s Worker</span></div>
+      </div>
+    </div>
+
+    <!-- Type 3 -->
+    <div class="alert-example">
+      <div class="alert-header">
+        <span class="pill warn">Type 3</span> Slack / User Free-text Query — unstructured
+      </div>
+      <div class="code-block"><span class="cmt">── Example A: direct infra alert ──</span>
+<span class="str">"@ops-bot dp-engine pod is in CrashLoopBackOff on prod-eks-1"</span>
+                                    <span class="ann">↑ pod name</span>     <span class="ann">↑ cluster in message</span>
+
+<span class="cmt">── Example B: data pipeline concern ──</span>
+<span class="str">"@ops-bot pdata collection has failed messages since this morning, check what is wrong"</span>
+                <span class="ann">↑ collection name</span>
+
+<span class="cmt">── Example C: environment-scoped query ──</span>
+<span class="str">"@ops-bot why are no messages being processed in staging env for daily-reconciliation?"</span>
+                                                 <span class="ann">↑ env name</span>      <span class="ann">↑ DAG/job name</span>
+
+<span class="cmt">── Example D: DAG-specific query ──</span>
+<span class="str">"@ops-bot bulkFHIR_ingest_dag failed 3 times, is it a data issue or infra?"</span>
+              <span class="ann">↑ DAG name → inventory lookup → Airflow Worker</span></div>
+      <div class="alert-extracted">
+        <div class="ext-label">Example A extraction</div>
+        <div class="ext-row"><span class="ext-key">entity_type</span><span class="ext-val">"pod"</span><span class="pill infra">infra direct</span></div>
+        <div class="ext-row"><span class="ext-key">entity_name</span><span class="ext-val">"dp-engine"</span></div>
+        <div class="ext-row"><span class="ext-key">cluster</span><span class="ext-val">"prod-eks-1"</span><span class="pill cluster">from text</span></div>
+        <div class="ext-row"><span class="ext-key">routing_path</span><span class="routing-badge">Infra path directly — no graph lookup needed</span></div>
+        <div class="ext-label" style="margin-top:10px">Example C extraction</div>
+        <div class="ext-row"><span class="ext-key">entity_type</span><span class="ext-val">"dag"</span><span class="pill dag">DAG</span></div>
+        <div class="ext-row"><span class="ext-key">entity_name</span><span class="ext-val">"daily-reconciliation"</span></div>
+        <div class="ext-row"><span class="ext-key">env_filter</span><span class="ext-val">"staging"</span><span class="pill env">→ staging-eks-1</span></div>
+        <div class="ext-row"><span class="ext-key">routing_path</span><span class="routing-badge">Inventory lookup by DAG name → Airflow Worker (staging creds)</span></div>
+      </div>
+    </div>
+
+    <!-- Type 4 -->
+    <div class="alert-example">
+      <div class="alert-header">
+        <span class="pill warn">Type 4</span> PagerDuty / incident.io Webhook
+      </div>
+      <div class="code-block">{
+  <span class="key">"event"</span>: <span class="str">"incident.triggered"</span>,
+  <span class="key">"incident"</span>: {
+    <span class="key">"title"</span>:     <span class="str">"[PROD] BulkFHIR processing job stopped — 0 messages/min"</span>,
+    <span class="key">"severity"</span>:  <span class="str">"P2"</span>,
+    <span class="key">"service"</span>: {
+      <span class="key">"name"</span>:  <span class="str">"bulkFHIR-processor"</span>,       <span class="ann">← service name → inventory</span>
+      <span class="key">"id"</span>:    <span class="str">"SVC-447"</span>
+    },
+    <span class="key">"custom_fields"</span>: {
+      <span class="key">"environment"</span>:  <span class="str">"production"</span>,
+      <span class="key">"team"</span>:         <span class="str">"data-platform"</span>,
+      <span class="key">"cluster"</span>:      <span class="str">"prod-eks-2"</span>            <span class="ann">← explicit cluster → skip graph lookup</span>
+    }
+  }
+}</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TAB 2 — INVENTORY                               -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="tab-inventory" class="panel">
+    <h2>Inventory — YAML Schema &amp; Examples</h2>
+    <p class="note">One file per entity (service/DAG/collection/topic). Stored in Git. Loaded into Postgres for fast lookup. Keep thin — only routing-essential fields.</p>
+
+    <div class="card">
+      <div class="card-hdr"><span class="pill service">service</span> inventory/services/bulkFHIR-processor.yaml</div>
+      <div class="code-block">
+<span class="section">entity_id</span>:     <span class="val">bulkFHIR-processor</span>
+<span class="section">entity_type</span>:   <span class="val">service</span>
+<span class="section">display_name</span>:  <span class="val">BulkFIR Message Processor</span>
+<span class="section">runtime_type</span>:  <span class="val">kubernetes</span>           <span class="cmt"># tells controller which worker to call</span>
+
+<span class="cmt"># Where it runs — per environment</span>
+<span class="section">environments</span>:
+  <span class="key">prod</span>:
+    <span class="key">cluster</span>:           <span class="val">prod-eks-2</span>
+    <span class="key">namespace</span>:         <span class="val">data-pipelines</span>
+    <span class="key">workload_type</span>:     <span class="val">deployment</span>
+    <span class="key">workload_name</span>:     <span class="val">bulkFHIR-processor</span>
+    <span class="key">replicas_expected</span>: <span class="num">3</span>
+  <span class="key">staging</span>:
+    <span class="key">cluster</span>:           <span class="val">staging-eks-1</span>
+    <span class="key">namespace</span>:         <span class="val">data-pipelines</span>
+    <span class="key">workload_type</span>:     <span class="val">deployment</span>
+    <span class="key">workload_name</span>:     <span class="val">bulkFHIR-processor</span>
+    <span class="key">replicas_expected</span>: <span class="num">1</span>
+
+<span class="cmt"># How to observe it</span>
+<span class="section">observability</span>:
+  <span class="key">loki_labels</span>:        {<span class="key">app</span>: <span class="val">bulkFHIR-processor</span>, <span class="key">namespace</span>: <span class="val">data-pipelines</span>}
+  <span class="key">prometheus_labels</span>:  {<span class="key">job</span>: <span class="val">bulkFHIR-processor</span>, <span class="key">namespace</span>: <span class="val">data-pipelines</span>}
+  <span class="key">tempo_service</span>:      <span class="val">bulkFHIR-processor</span>
+
+<span class="cmt"># What data it touches</span>
+<span class="section">databases</span>:
+  - <span class="key">cluster</span>: <span class="val">mongo-cluster-A</span>
+    <span class="key">db</span>:      <span class="val">processing_db</span>
+    <span class="key">collection</span>: <span class="val">pdata</span>         <span class="cmt"># writes status updates here</span>
+
+<span class="section">kafka</span>:
+  <span class="key">consumes</span>:
+    - <span class="key">topic</span>:          <span class="val">bulkFHIR-events</span>
+      <span class="key">consumer_group</span>: <span class="val">bulkFHIR-processor-group</span>
+      <span class="key">cluster</span>:        <span class="val">kafka-prod-1</span>
+
+<span class="cmt"># Ownership + docs</span>
+<span class="section">owner</span>:         <span class="val">data-platform-team</span>
+<span class="section">repo</span>:          <span class="val">github.com/org/bulkFHIR-processor</span>
+<span class="section">runbook_url</span>:   <span class="val">https://confluence.org/runbooks/bulkFHIR-processor</span>
+<span class="section">confluence_url</span>: <span class="val">https://confluence.org/spaces/DP/bulkFHIR-architecture</span>
+
+<span class="cmt"># What the Executor is allowed to do</span>
+<span class="section">remediation_flags</span>:
+  <span class="key">can_restart</span>:        <span class="val">true</span>
+  <span class="key">can_rollback</span>:       <span class="val">true</span>
+  <span class="key">can_pause_consumer</span>: <span class="val">true</span>
+  <span class="key">requires_approval</span>:  <span class="val">true</span>   <span class="cmt"># always — no auto-execute in prod</span>
+  <span class="key">auto_allowed_envs</span>:  [<span class="val">staging</span>, <span class="val">dev</span>]
+
+<span class="cmt"># Credential pointer — never store actual creds here</span>
+<span class="section">credentials_ref</span>:   <span class="val">vault:prod/eks/prod-eks-2</span>
+</div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><span class="pill dag">dag</span> inventory/dags/bulkFHIR-ingest-dag.yaml</div>
+      <div class="code-block">
+<span class="section">entity_id</span>:     <span class="val">bulkFHIR-ingest-dag</span>
+<span class="section">entity_type</span>:   <span class="val">dag</span>
+<span class="section">runtime_type</span>:  <span class="val">airflow</span>
+
+<span class="section">dag_id</span>:        <span class="val">bulkFHIR_ingest_dag</span>       <span class="cmt"># exact Airflow DAG ID</span>
+<span class="section">schedule</span>:      <span class="val">"*/5 * * * *"</span>           <span class="cmt"># runs every 5 min</span>
+
+<span class="section">environments</span>:
+  <span class="key">prod</span>:
+    <span class="key">airflow_instance</span>: <span class="val">airflow-prod</span>         <span class="cmt"># → looks up airflow-prod in env config</span>
+    <span class="key">airflow_url</span>:     <span class="val">https://airflow.prod.internal</span>
+  <span class="key">staging</span>:
+    <span class="key">airflow_instance</span>: <span class="val">airflow-staging</span>
+    <span class="key">airflow_url</span>:     <span class="val">https://airflow.staging.internal</span>
+
+<span class="section">observability</span>:
+  <span class="key">loki_labels</span>: {<span class="key">component</span>: <span class="val">airflow</span>, <span class="key">dag_id</span>: <span class="val">bulkFHIR_ingest_dag</span>}
+
+<span class="section">owner</span>:       <span class="val">data-platform-team</span>
+<span class="section">repo</span>:        <span class="val">github.com/org/airflow-dags</span>
+<span class="section">dag_file</span>:    <span class="val">dags/bulkFHIR/ingest_dag.py</span>  <span class="cmt"># for code-context retrieval</span>
+<span class="section">runbook_url</span>: <span class="val">https://confluence.org/runbooks/bulkFHIR-dag</span>
+
+<span class="section">remediation_flags</span>:
+  <span class="key">can_trigger</span>:       <span class="val">true</span>
+  <span class="key">can_pause</span>:         <span class="val">true</span>
+  <span class="key">requires_approval</span>: <span class="val">true</span>
+  <span class="key">auto_allowed_envs</span>: [<span class="val">staging</span>, <span class="val">dev</span>]
+
+<span class="section">credentials_ref</span>: <span class="val">vault:prod/airflow/api-key</span>
+</div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><span class="pill collection">collection</span> inventory/collections/pdata.yaml</div>
+      <div class="code-block">
+<span class="section">entity_id</span>:     <span class="val">pdata</span>
+<span class="section">entity_type</span>:   <span class="val">collection</span>
+<span class="section">runtime_type</span>:  <span class="val">mongodb</span>
+
+<span class="section">database</span>:      <span class="val">processing_db</span>
+<span class="section">mongo_cluster</span>: <span class="val">mongo-cluster-A</span>          <span class="cmt"># prod cluster</span>
+
+<span class="section">primary_owner_service</span>: <span class="val">bulkFHIR-processor</span>  <span class="cmt"># ← who writes to this — critical for routing</span>
+<span class="section">producers</span>:     [<span class="val">bulkFHIR-processor</span>]
+<span class="section">consumers</span>:     [<span class="val">reporting-service</span>, <span class="val">analytics-pipeline</span>]
+
+<span class="cmt"># Status fields — helps controller understand alert semantics</span>
+<span class="section">status_field</span>:  <span class="val">status</span>
+<span class="section">status_values</span>:
+  <span class="key">pending</span>:    <span class="str">"message received, not yet processed"</span>
+  <span class="key">processing</span>: <span class="str">"currently being processed"</span>
+  <span class="key">failed</span>:     <span class="str">"processing failed — check error_code field"</span>
+  <span class="key">completed</span>:  <span class="str">"successfully processed"</span>
+
+<span class="section">observability</span>:
+  <span class="key">alert_labels</span>: {<span class="key">collection</span>: <span class="val">pdata</span>, <span class="key">database</span>: <span class="val">processing_db</span>}
+
+<span class="section">owner</span>:       <span class="val">data-platform-team</span>
+<span class="section">criticality</span>: <span class="val">high</span>                        <span class="cmt"># affects alert severity + escalation</span>
+
+<span class="section">credentials_ref</span>: <span class="val">vault:prod/mongo/cluster-a/uri</span>
+</div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr"><span class="pill service">service</span> inventory/services/dp-engine.yaml — infra-only example</div>
+      <div class="code-block">
+<span class="section">entity_id</span>:     <span class="val">dp-engine</span>
+<span class="section">entity_type</span>:   <span class="val">service</span>
+<span class="section">runtime_type</span>:  <span class="val">kubernetes</span>
+
+<span class="section">environments</span>:
+  <span class="key">prod</span>:
+    <span class="key">cluster</span>:       <span class="val">prod-eks-1</span>              <span class="cmt"># different cluster from bulkFHIR</span>
+    <span class="key">namespace</span>:     <span class="val">processing</span>
+    <span class="key">workload_type</span>: <span class="val">deployment</span>
+    <span class="key">workload_name</span>: <span class="val">dp-engine</span>
+
+<span class="section">observability</span>:
+  <span class="key">loki_labels</span>:       {<span class="key">app</span>: <span class="val">dp-engine</span>, <span class="key">namespace</span>: <span class="val">processing</span>}
+  <span class="key">prometheus_labels</span>: {<span class="key">job</span>: <span class="val">dp-engine</span>}
+
+<span class="section">owner</span>:            <span class="val">platform-team</span>
+<span class="section">remediation_flags</span>:
+  <span class="key">can_restart</span>:      <span class="val">true</span>
+  <span class="key">requires_approval</span>: <span class="val">true</span>
+
+<span class="section">credentials_ref</span>: <span class="val">vault:prod/eks/prod-eks-1</span>  <span class="cmt"># different vault path — different cluster</span>
+</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TAB 3 — DATAFLOW GRAPH                          -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="tab-graph" class="panel">
+    <h2>Dataflow Graph — Visual &amp; Schema</h2>
+    <p class="note">The graph resolves ambiguous alerts: "who writes to pdata?" → follow edges to find the responsible service.</p>
+
+    <!-- SVG Visualization -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px;overflow-x:auto">
+      <h3 style="margin-bottom:16px">BulkFHIR Processing Pipeline — Full Flow</h3>
+      <svg width="860" height="150" viewBox="0 0 860 150" style="display:block;min-width:700px">
+        <defs>
+          <marker id="ga" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#555"/>
+          </marker>
+        </defs>
+
+        <!-- Background lanes -->
+        <rect x="8" y="8" width="855" height="134" fill="#111" rx="6"/>
+
+        <!-- Arrows -->
+        <line x1="148" y1="62" x2="190" y2="62" stroke="#555" stroke-width="1.5" marker-end="url(#ga)"/>
+        <line x1="315" y1="62" x2="358" y2="62" stroke="#555" stroke-width="1.5" marker-end="url(#ga)"/>
+        <line x1="485" y1="62" x2="528" y2="62" stroke="#555" stroke-width="1.5" marker-end="url(#ga)"/>
+        <line x1="655" y1="62" x2="698" y2="62" stroke="#555" stroke-width="1.5" marker-end="url(#ga)"/>
+
+        <!-- Arrow labels -->
+        <text x="162" y="56" font-size="9" fill="#555" text-anchor="middle">reads</text>
+        <text x="330" y="56" font-size="9" fill="#555" text-anchor="middle">publishes</text>
+        <text x="502" y="56" font-size="9" fill="#555" text-anchor="middle">consumes</text>
+        <text x="670" y="56" font-size="9" fill="#555" text-anchor="middle">writes</text>
+
+        <!-- Node 1: mongo-source (collection) -->
+        <rect x="20" y="38" width="128" height="48" rx="5" fill="#1a0d2d" stroke="#6b21a8" stroke-width="1.5"/>
+        <text x="84" y="57" text-anchor="middle" font-size="10" font-weight="600" fill="#c084fc">mongo-source</text>
+        <text x="84" y="70" text-anchor="middle" font-size="9" fill="#888">Collection</text>
+        <text x="84" y="81" text-anchor="middle" font-size="8" fill="#555">mongo-cluster-A</text>
+
+        <!-- Node 2: Airflow DAG -->
+        <rect x="192" y="38" width="122" height="48" rx="5" fill="#2d1500" stroke="#7c2d12" stroke-width="1.5"/>
+        <text x="253" y="57" text-anchor="middle" font-size="10" font-weight="600" fill="#fb923c">bulkFHIR_ingest_dag</text>
+        <text x="253" y="70" text-anchor="middle" font-size="9" fill="#888">Airflow DAG</text>
+        <text x="253" y="81" text-anchor="middle" font-size="8" fill="#555">airflow-prod · */5 * * * *</text>
+
+        <!-- Node 3: Kafka topic -->
+        <rect x="360" y="38" width="124" height="48" rx="5" fill="#0d2d1a" stroke="#16532e" stroke-width="1.5"/>
+        <text x="422" y="57" text-anchor="middle" font-size="10" font-weight="600" fill="#4ade80">bulkFHIR-events</text>
+        <text x="422" y="70" text-anchor="middle" font-size="9" fill="#888">Kafka Topic</text>
+        <text x="422" y="81" text-anchor="middle" font-size="8" fill="#555">kafka-prod-1 · 12 partitions</text>
+
+        <!-- Node 4: K8s service -->
+        <rect x="530" y="38" width="124" height="48" rx="5" fill="#0d1a2d" stroke="#1e3a5f" stroke-width="1.5"/>
+        <text x="592" y="57" text-anchor="middle" font-size="10" font-weight="600" fill="#5b8ff9">bulkFHIR-processor</text>
+        <text x="592" y="70" text-anchor="middle" font-size="9" fill="#888">K8s Service</text>
+        <text x="592" y="81" text-anchor="middle" font-size="8" fill="#555">prod-eks-2 · data-pipelines</text>
+
+        <!-- Node 5: pdata (collection) -->
+        <rect x="700" y="38" width="148" height="48" rx="5" fill="#1a0d2d" stroke="#f59e0b" stroke-width="2"/>
+        <text x="774" y="57" text-anchor="middle" font-size="10" font-weight="600" fill="#f59e0b">pdata</text>
+        <text x="774" y="70" text-anchor="middle" font-size="9" fill="#888">Collection (alert target)</text>
+        <text x="774" y="81" text-anchor="middle" font-size="8" fill="#555">mongo-cluster-A</text>
+
+        <!-- Legend -->
+        <rect x="20" y="108" width="10" height="10" fill="#1a0d2d" stroke="#6b21a8" stroke-width="1"/>
+        <text x="34" y="118" font-size="9" fill="#888">Collection</text>
+        <rect x="110" y="108" width="10" height="10" fill="#2d1500" stroke="#7c2d12" stroke-width="1"/>
+        <text x="124" y="118" font-size="9" fill="#888">Airflow DAG</text>
+        <rect x="210" y="108" width="10" height="10" fill="#0d2d1a" stroke="#16532e" stroke-width="1"/>
+        <text x="224" y="118" font-size="9" fill="#888">Kafka Topic</text>
+        <rect x="308" y="108" width="10" height="10" fill="#0d1a2d" stroke="#1e3a5f" stroke-width="1"/>
+        <text x="322" y="118" font-size="9" fill="#888">K8s Service</text>
+        <rect x="410" y="108" width="10" height="10" fill="#1a0d2d" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="424" y="118" font-size="9" fill="#f59e0b">Alert target</text>
+      </svg>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-hdr">Nodes schema (how nodes are stored)</div>
+        <div class="code-block" style="font-size:11px">
+<span class="cmt">-- Postgres table: graph_nodes</span>
+<span class="key">id</span>:          <span class="val">pdata</span>
+<span class="key">node_type</span>:   <span class="val">collection</span>
+<span class="key">display_name</span>: <span class="val">pdata</span>
+<span class="key">metadata</span>: {
+  <span class="key">database</span>:      <span class="val">processing_db</span>,
+  <span class="key">mongo_cluster</span>: <span class="val">mongo-cluster-A</span>,
+  <span class="key">primary_owner</span>: <span class="val">bulkFHIR-processor</span>
+}
+<span class="key">inventory_ref</span>: <span class="val">pdata</span>  <span class="cmt"># → join to inventory</span>
+
+<span class="cmt">-- Another node</span>
+<span class="key">id</span>:          <span class="val">bulkFHIR-events</span>
+<span class="key">node_type</span>:   <span class="val">topic</span>
+<span class="key">metadata</span>: {
+  <span class="key">kafka_cluster</span>: <span class="val">kafka-prod-1</span>,
+  <span class="key">partitions</span>:    <span class="num">12</span>,
+  <span class="key">consumer_group</span>: <span class="val">bulkFHIR-processor-group</span>
+}
+</div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">Edges schema (how edges are stored)</div>
+        <div class="code-block" style="font-size:11px">
+<span class="cmt">-- Postgres table: graph_edges</span>
+<span class="key">from_id</span>:    <span class="val">bulkFHIR-ingest-dag</span>
+<span class="key">to_id</span>:      <span class="val">bulkFHIR-events</span>
+<span class="key">edge_type</span>:  <span class="val">produces</span>
+<span class="key">label</span>:      <span class="val">publishes processed records</span>
+
+<span class="key">from_id</span>:    <span class="val">bulkFHIR-processor</span>
+<span class="key">to_id</span>:      <span class="val">pdata</span>
+<span class="key">edge_type</span>:  <span class="val">writes_to</span>
+<span class="key">label</span>:      <span class="val">status updates (pending→completed/failed)</span>
+
+<span class="key">from_id</span>:    <span class="val">bulkFHIR-events</span>
+<span class="key">to_id</span>:      <span class="val">bulkFHIR-processor</span>
+<span class="key">edge_type</span>:  <span class="val">consumed_by</span>
+<span class="key">label</span>:      <span class="val">consumer group: bulkFHIR-processor-group</span>
+
+<span class="cmt">-- Edge types: produces, consumes, writes_to,</span>
+<span class="cmt">--  reads_from, triggers, depends_on, owned_by</span>
+</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr">How controller queries the graph — "who writes to pdata?"</div>
+      <div class="code-block">
+<span class="cmt">-- Query 1: find direct writer</span>
+SELECT <span class="key">from_id</span>, <span class="key">edge_type</span>
+FROM <span class="val">graph_edges</span>
+WHERE <span class="key">to_id</span> = <span class="str">'pdata'</span>
+  AND <span class="key">edge_type</span> IN (<span class="str">'writes_to'</span>, <span class="str">'produces'</span>)
+
+<span class="cmt">→ Result: bulkFHIR-processor (writes_to)</span>
+
+<span class="cmt">-- Query 2: get 1-hop upstream of bulkFHIR-processor</span>
+SELECT <span class="key">from_id</span>, <span class="key">edge_type</span>
+FROM <span class="val">graph_edges</span>
+WHERE <span class="key">to_id</span> = <span class="str">'bulkFHIR-processor'</span>
+  AND <span class="key">edge_type</span> = <span class="str">'consumed_by'</span>
+
+<span class="cmt">→ Result: bulkFHIR-events (Kafka topic feeds the processor)</span>
+
+<span class="cmt">-- Query 3: what produces bulkFHIR-events?</span>
+SELECT <span class="key">from_id</span>
+FROM <span class="val">graph_edges</span>
+WHERE <span class="key">to_id</span> = <span class="str">'bulkFHIR-events'</span>
+  AND <span class="key">edge_type</span> = <span class="str">'produces'</span>
+
+<span class="cmt">→ Result: bulkFHIR-ingest-dag (Airflow DAG)</span>
+
+<span class="cmt">-- Full upstream chain now known without loading any logs/metrics:</span>
+<span class="cmt">   pdata ← bulkFHIR-processor ← bulkFHIR-events ← bulkFHIR-ingest-dag ← mongo-source</span>
+</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TAB 4 — CONTROLLER LOGIC                        -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="tab-controller" class="panel">
+    <h2>Controller Decision Logic</h2>
+
+    <!-- Routing rules table -->
+    <h3>Step 1 — Routing rules (deterministic, no LLM)</h3>
+    <table style="margin-bottom:20px">
+      <thead><tr><th>Extracted entity type</th><th>Routing path</th><th>First worker called</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="td-rule"><span class="pill infra">pod / node / deployment</span></td>
+          <td>Infra direct — no lookup needed</td>
+          <td>K8s / Infra Worker</td>
+          <td class="td-note">Alert: "dp-engine pod CrashLoopBackOff prod-eks-1" — cluster known from alert, goes straight to K8s worker</td>
+        </tr>
+        <tr>
+          <td class="td-rule"><span class="pill service">service / job name</span></td>
+          <td>Inventory lookup → get runtime_type + cluster</td>
+          <td>Worker matching runtime_type</td>
+          <td class="td-note">Alert: "bulkFHIR-processor failures" → inventory → runtime: kubernetes, cluster: prod-eks-2 → K8s Worker</td>
+        </tr>
+        <tr>
+          <td class="td-rule"><span class="pill dag">DAG name</span></td>
+          <td>Inventory lookup → get airflow_instance</td>
+          <td>Pipeline / Airflow Worker</td>
+          <td class="td-note">Query: "bulkFHIR_ingest_dag failed" → inventory → airflow-prod URL + creds → Airflow Worker</td>
+        </tr>
+        <tr>
+          <td class="td-rule"><span class="pill collection">collection / table / topic</span></td>
+          <td>Dataflow graph lookup → resolve owner service → Inventory</td>
+          <td>Worker for owner service</td>
+          <td class="td-note">Alert: "pdata failed messages" → graph → owner: bulkFHIR-processor → inventory → K8s Worker</td>
+        </tr>
+        <tr>
+          <td class="td-rule"><span class="pill warn">unclear / ambiguous</span></td>
+          <td>Fallback: observability labels → log tags → past incidents</td>
+          <td>Observability Worker first</td>
+          <td class="td-note">Alert: "processing error count high" (no entity) → check Loki labels → infer service → then route normally</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Context budget table -->
+    <h3>Step 2 — Context budget (what gets loaded at each stage)</h3>
+    <table style="margin-bottom:20px">
+      <thead><tr><th>Stage</th><th>What is loaded</th><th>Cost</th><th>Condition to proceed to next</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="pill stage1">Stage 1</span></td>
+          <td>Alert payload · Matched inventory record · 1-hop graph neighborhood · Recent deploy/config change · Basic pod/DAG health status</td>
+          <td><span style="color:var(--green);font-size:11px">~500–1k tokens</span></td>
+          <td class="td-note">Confidence &lt; 0.8 after Stage 1 → proceed to Stage 2</td>
+        </tr>
+        <tr>
+          <td><span class="pill stage2">Stage 2</span></td>
+          <td>Targeted logs (service + time range, max 200 lines) · Related KPIs last 30 min · DAG run history · Kafka consumer lag · DB error rates</td>
+          <td><span style="color:var(--yellow);font-size:11px">~2k–5k tokens</span></td>
+          <td class="td-note">Confidence &lt; 0.75 after Stage 2 → proceed to Stage 3</td>
+        </tr>
+        <tr>
+          <td><span class="pill stage3">Stage 3</span></td>
+          <td>Code snippets (relevant module only) · Configs · Runbook / Confluence page · Distributed traces · Past incident history</td>
+          <td><span style="color:var(--red);font-size:11px">~5k–15k tokens</span></td>
+          <td class="td-note">Only when Stage 2 is inconclusive. Never loaded by default.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Worker output contract -->
+    <div class="card">
+      <div class="card-hdr">Worker Output Contract — every worker must return this exact shape</div>
+      <div class="code-block">
+{
+  <span class="key">"worker"</span>: <span class="str">"pipeline-worker"</span>,
+  <span class="key">"checked"</span>: [
+    <span class="str">"Kafka topic bulkFHIR-events: consumer lag"</span>,
+    <span class="str">"bulkFHIR-processor-group: offset position"</span>,
+    <span class="str">"Kafka broker health: kafka-prod-1"</span>
+  ],
+  <span class="key">"findings"</span>: [
+    <span class="str">"Topic bulkFHIR-events has 0 new messages in last 3 hours"</span>,
+    <span class="str">"Consumer lag is stable (not growing) — consumer is idle, not falling behind"</span>,
+    <span class="str">"Kafka broker is healthy — no broker-side issues"</span>
+  ],
+  <span class="key">"evidence_refs"</span>: [
+    <span class="str">"prometheus:kafka_consumer_lag{group=bulkFHIR-processor-group} @ 2026-04-20T10:00:00Z"</span>,
+    <span class="str">"kafka-admin: topic_offsets_bulkFHIR-events_2026-04-20T10:05:00Z"</span>
+  ],
+  <span class="key">"ruled_out"</span>: [
+    <span class="str">"Kafka broker failure — broker healthy, all partitions online"</span>,
+    <span class="str">"Consumer crash — consumer lag stable, pod healthy"</span>
+  ],
+  <span class="key">"confidence"</span>: <span class="num">0.85</span>,          <span class="cmt">// 0.0–1.0. Controller stops if ≥ 0.85</span>
+  <span class="key">"next_suggested_check"</span>: <span class="str">"Airflow DAG bulkFHIR_ingest_dag — no messages arriving from producer side"</span>
+}
+</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TAB 5 — END-TO-END EXAMPLE                      -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="tab-e2e" class="panel">
+    <h2>End-to-End Investigation Examples</h2>
+    <p class="note">Three full walkthroughs — exact data at each step, which workers fire, and how confidence gates progression.</p>
+
+    <div class="ex-tabs">
+      <span class="ex-tab active" onclick="showEx('ex1',this)">Example 1 — bulkFHIR Backlog</span>
+      <span class="ex-tab" onclick="showEx('ex2',this)">Example 2 — OOM (dp-service)</span>
+      <span class="ex-tab" onclick="showEx('ex3',this)">Example 3 — K8s Node Pressure</span>
+      <span class="ex-tab" onclick="showEx('ex4',this)">Example 4 — DAG: 3rd-Party API Down</span>
+    </div>
+
+    <!-- ─── EXAMPLE 1 ─── -->
+    <div id="ex1" class="ex-section active">
+    <p class="ex-title">Alert: pdata has 50 failed + 50 pending messages → trace upstream chain through Kafka → Airflow → MongoDB</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">1</div>
+        <div class="step-content">
+          <div class="step-title">Alert arrives <span style="color:var(--muted);font-weight:400;font-size:11px">T+0s</span></div>
+          <div class="code-block" style="font-size:11px">
+{ alertname: <span class="str">"MongoCollectionBacklog"</span>, collection: <span class="str">"pdata"</span>, failed: <span class="num">50</span>, pending: <span class="num">50</span>, env: <span class="str">"prod"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">2</div>
+        <div class="step-content">
+          <div class="step-title">LLM extracts entities <span style="color:var(--muted);font-weight:400;font-size:11px">T+1s · ~200 tokens</span></div>
+          <div class="code-block" style="font-size:11px">
+{ entity_type: <span class="str">"collection"</span>, entity_name: <span class="str">"pdata"</span>, database: <span class="str">"processing_db"</span>, env: <span class="str">"prod"</span> }
+<span class="cmt">→ Rule fires: entity_type=collection → Dataflow Graph lookup</span>
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">3</div>
+        <div class="step-content">
+          <div class="step-title">Dataflow Graph query — resolve upstream chain <span style="color:var(--muted);font-weight:400;font-size:11px">T+2s · DB lookup, 0 LLM tokens</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Query: who writes to pdata?</span>
+<span class="cmt">→ primary_owner: bulkFHIR-processor</span>
+<span class="cmt">→ upstream chain: bulkFHIR-ingest-dag → bulkFHIR-events → bulkFHIR-processor → pdata</span>
+<span class="cmt">→ nearest failure point: K8s consumer (bulkFHIR-processor) — start here</span>
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">4</div>
+        <div class="step-content">
+          <div class="step-title">Inventory lookup — get access details for bulkFHIR-processor <span style="color:var(--muted);font-weight:400;font-size:11px">T+2s · DB lookup</span></div>
+          <div class="code-block" style="font-size:11px">
+cluster: <span class="val">prod-eks-2</span>  namespace: <span class="val">data-pipelines</span>  creds: <span class="val">vault:prod/eks/prod-eks-2</span>
+loki_labels: {app: bulkFHIR-processor}   prometheus_labels: {job: bulkFHIR-processor}
+kafka.consumes: bulkFHIR-events  consumer_group: bulkFHIR-processor-group
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">5</div>
+        <div class="step-content">
+          <div class="step-title">K8s Worker called — Stage 1 context only <span style="color:var(--muted);font-weight:400;font-size:11px">T+3s · ~800 tokens</span></div>
+          <div class="step-detail">Context given: alert payload + inventory record + graph neighborhood + <span class="pill stage1">Stage 1</span> only</div>
+          <div class="code-block" style="margin-top:8px;font-size:11px">
+<span class="cmt">Worker checks:</span>
+- Deployment replicas: 3/3 running  <span class="ann">✓ healthy</span>
+- Recent restarts: 0 in last 2h     <span class="ann">✓ stable</span>
+- Last deploy: 18h ago              <span class="ann">✓ not recent</span>
+- Consumer lag: 0 (stable, not growing)  <span class="ann">⚠ idle — no messages to process</span>
+
+<span class="cmt">Worker returns (confidence: 0.72 — not conclusive):</span>
+{ findings: [<span class="str">"Consumer healthy but idle — no messages arriving on topic"</span>],
+  ruled_out: [<span class="str">"App crash"</span>, <span class="str">"OOM"</span>, <span class="str">"Recent bad deploy"</span>],
+  confidence: <span class="num">0.72</span>,
+  next_suggested_check: <span class="str">"Kafka topic bulkFHIR-events — no messages arriving from producer"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">6</div>
+        <div class="step-content">
+          <div class="step-title">Controller evaluates — confidence 0.72 &lt; 0.85, move upstream <span style="color:var(--muted);font-weight:400;font-size:11px">T+35s</span></div>
+          <div class="step-detail">Calls Pipeline Worker with Kafka context. <span class="pill stage2">Stage 2</span> now unlocked for Kafka metrics.</div>
+          <div class="code-block" style="margin-top:8px;font-size:11px">
+<span class="cmt">Kafka Worker checks:</span>
+- Topic bulkFHIR-events: 0 new messages in last 3h   <span class="ann">✗ empty</span>
+- Broker kafka-prod-1: all partitions online         <span class="ann">✓ healthy</span>
+- Producer activity: no recent produce events        <span class="ann">✗ no producer</span>
+
+{ findings: [<span class="str">"Topic is empty — no producer has published in 3 hours"</span>],
+  ruled_out: [<span class="str">"Kafka broker failure"</span>, <span class="str">"Consumer crash"</span>],
+  confidence: <span class="num">0.80</span>,
+  next_suggested_check: <span class="str">"Airflow DAG bulkFHIR_ingest_dag — producer side"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num warn">7</div>
+        <div class="step-content">
+          <div class="step-title">Controller moves upstream — calls Airflow Worker <span style="color:var(--muted);font-weight:400;font-size:11px">T+65s</span></div>
+          <div class="code-block" style="margin-top:8px;font-size:11px">
+<span class="cmt">Airflow Worker checks (using inventory: airflow-prod URL + vault creds):</span>
+- bulkFHIR_ingest_dag last run: <span class="str">FAILED</span> at <span class="str">2026-04-20T00:03:00Z</span>  <span class="ann">✗ 10 hours ago</span>
+- Failed task: <span class="str">extract_from_mongo_source</span>
+- Error: <span class="str">"MongoServerSelectionTimeoutError: mongo-cluster-A:27017"</span>
+- Subsequent runs: <span class="num">3</span> retries, all failed with same error
+- Source collection <span class="str">bulkFHIR_source</span>: last successful read <span class="str">10 hours ago</span>
+
+{ findings: [
+    <span class="str">"DAG failed 10h ago — extract_from_mongo_source task"</span>,
+    <span class="str">"Root cause: mongo-cluster-A connection timeout on source collection"</span>,
+    <span class="str">"3 retries all failed — not transient"</span>
+  ],
+  confidence: <span class="num">0.94</span>,   <span class="ann">← above threshold — conclude</span>
+  next_suggested_check: <span class="str">"mongo-cluster-A health / network access from Airflow"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">8</div>
+        <div class="step-content">
+          <div class="step-title">Controller generates RCA — confidence 0.94 ≥ 0.85 → stop <span style="color:var(--muted);font-weight:400;font-size:11px">T+92s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="section">ROOT CAUSE</span>:     mongo-cluster-A connection timeout in airflow prod
+<span class="section">EVIDENCE CHAIN</span>:  DAG failed (10h ago) → no messages on bulkFHIR-events → consumer idle
+                   → pdata not updated → 50 pending + 50 failed accumulating
+<span class="section">IMPACT</span>:          All bulkFHIR processing halted for 10 hours in prod
+<span class="section">CONFIDENCE</span>:      0.94
+
+<span class="section">IMMEDIATE FIX OPTIONS</span>:
+  1. Fix mongo-cluster-A connectivity from airflow-prod, then re-trigger bulkFHIR_ingest_dag
+  2. If Mongo is healthy, check Airflow worker network policy / security group
+
+<span class="section">VERIFICATION</span>: After fix, confirm:
+  - bulkFHIR_ingest_dag runs successfully
+  - bulkFHIR-events topic receives new messages
+  - pdata pending count drops, completed count rises
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num">9</div>
+        <div class="step-content">
+          <div class="step-title">Approval gate — human review required <span style="color:var(--muted);font-weight:400;font-size:11px">T+93s</span></div>
+          <div class="step-detail" style="margin-bottom:8px">Executor cannot run without explicit approval. Approval UI shows the RCA + proposed action.</div>
+          <div class="code-block" style="font-size:11px">
+Proposed action: <span class="str">re-trigger bulkFHIR_ingest_dag after confirming mongo-cluster-A is healthy</span>
+Affected env:    <span class="str">prod</span>
+Executor plan:
+  1. Check mongo-cluster-A ping from airflow-prod worker node
+  2. If ping ok → trigger DAG via Airflow REST API: POST /api/v1/dags/bulkFHIR_ingest_dag/dagRuns
+  3. Monitor DAG run for 5 min — confirm all tasks pass
+  4. Verify pdata pending count drops below 10 within 10 min
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">10</div>
+        <div class="step-content">
+          <div class="step-title">Executor runs + verification <span style="color:var(--muted);font-weight:400;font-size:11px">T+120s after approval</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Execution log:</span>
+[T+0s]   Mongo-cluster-A ping: OK (22ms response)
+[T+5s]   DAG run triggered: run_id=manual__2026-04-20T10:22:00+0000
+[T+95s]  DAG run SUCCEEDED — all tasks passed
+[T+100s] Kafka topic bulkFHIR-events: +847 new messages (producer active)
+[T+180s] pdata pending count: 50 → 12 → 3 → 0 ✓
+[T+210s] pdata failed count: stable (no new failures) ✓
+
+<span class="section">RECOVERY CONFIRMED</span> — incident resolved
+</div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /ex1 -->
+
+    <!-- ─── EXAMPLE 2: dp-service OOM ─── -->
+    <div id="ex2" class="ex-section">
+    <p class="ex-title">Alert: dp-service pods OOMKilled — high memory usage (3 restarts in 30 min) → Loki logs → Prometheus → ConfigMap → code → BATCH_SIZE root cause</p>
+
+    <!-- Investigation flow -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-hdr">Investigation flow — workers called in sequence, gated by confidence</div>
+      <div class="card-body" style="padding:16px">
+        <div class="inv-flow">
+          <div class="inv-node n-alert">
+            <div class="inv-label">🚨 Alert</div>
+            <div class="inv-sub">OOMKilled<br>HighMemoryUsage</div>
+            <div class="inv-time">T+0s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">entity<br>extract</div></div>
+          <div class="inv-node n-k8s">
+            <div class="inv-label">K8s Worker</div>
+            <div class="inv-sub">Stage 1<br>Pod · restarts · deploy</div>
+            <div class="inv-conf">conf: 0.55 ↑</div>
+            <div class="inv-time">T+3s – T+28s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">need<br>logs</div></div>
+          <div class="inv-node n-obs">
+            <div class="inv-label">Obs Worker</div>
+            <div class="inv-sub">Stage 2<br>Loki + Prometheus</div>
+            <div class="inv-conf">conf: 0.73 ↑</div>
+            <div class="inv-time">T+29s – T+75s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">need<br>config</div></div>
+          <div class="inv-node n-app">
+            <div class="inv-label">App Worker</div>
+            <div class="inv-sub">Stage 3<br>ConfigMap + Code</div>
+            <div class="inv-conf">conf: 0.96 ✓</div>
+            <div class="inv-time">T+76s – T+118s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">conclude</div></div>
+          <div class="inv-node n-rca">
+            <div class="inv-label">✅ RCA</div>
+            <div class="inv-sub">BATCH_SIZE=5000<br>holds all in heap</div>
+            <div class="inv-time">T+119s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">1</div>
+        <div class="step-content">
+          <div class="step-title">Alert arrives <span style="color:var(--muted);font-weight:400;font-size:11px">T+0s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Prometheus Alertmanager webhook:</span>
+{ alertname: <span class="str">"ContainerOOMKilled"</span>,
+  pod: <span class="str">"dp-service-7f9c4b-xk2mn"</span>, namespace: <span class="str">"data-pipelines"</span>,
+  cluster: <span class="str">"prod-eks-1"</span>, service: <span class="str">"dp-service"</span>,
+  reason: <span class="str">"OOMKilled"</span>, memory_limit: <span class="str">"2Gi"</span>,
+  restarts_in_30min: <span class="num">3</span>, env: <span class="str">"prod"</span> }
+
+<span class="cmt">+ Companion Prometheus alert (same service):</span>
+{ alertname: <span class="str">"HighMemoryUsage"</span>, service: <span class="str">"dp-service"</span>,
+  value: <span class="str">"97%"</span>, threshold: <span class="str">"90%"</span>, for: <span class="str">"5m"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">2</div>
+        <div class="step-content">
+          <div class="step-title">Entity extraction + inventory lookup <span style="color:var(--muted);font-weight:400;font-size:11px">T+1s · ~200 tokens</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Extracted from alert labels:</span>
+{ entity_type: <span class="str">"service"</span>, entity_name: <span class="str">"dp-service"</span>,
+  cluster: <span class="str">"prod-eks-1"</span>, env: <span class="str">"prod"</span>,
+  alert_class: <span class="str">"oom_kill"</span> }
+
+<span class="cmt">Inventory record for dp-service:</span>
+cluster: <span class="val">prod-eks-1</span>  namespace: <span class="val">data-pipelines</span>
+loki_labels:       {app: <span class="val">dp-service</span>, namespace: <span class="val">data-pipelines</span>}
+prometheus_labels: {job: <span class="val">dp-service</span>}
+kafka.consumes:    <span class="val">dp-events</span>  consumer_group: <span class="val">dp-service-cg</span>
+repo:              <span class="val">github.com/org/dp-service</span>
+config_refs:       [<span class="val">dp-service-configmap</span>, <span class="val">dp-service-env-secret</span>]
+
+<span class="cmt">→ Rule fires: alert_class=oom_kill → start K8s Worker (Stage 1) + queue Obs Worker</span>
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">3</div>
+        <div class="step-content">
+          <div class="step-title">K8s Worker — Stage 1 context <span style="color:var(--muted);font-weight:400;font-size:11px">T+3s · ~900 tokens</span></div>
+          <div class="step-detail">Checks pod health, restart pattern, recent deploys. Context: alert + inventory. <span class="pill stage1">Stage 1</span></div>
+          <div class="code-block" style="margin-top:8px;font-size:11px">
+<span class="cmt">Worker checks:</span>
+- Pod OOMKills: <span class="num">3</span> in last 30min                    <span class="ann">✗ critical</span>
+- Memory usage: 1.94Gi / 2Gi limit = 97%       <span class="ann">✗ saturated</span>
+- Restart timestamps: T-28m, T-18m, T-2m       <span class="ann">⚠ every ~10min, accelerating</span>
+- Restart interval pattern: 25-30s polling gap  <span class="ann">⚠ matches Kafka poll.interval.ms</span>
+- Recent deploy: none in last 48h              <span class="ann">✓ not deploy-caused</span>
+- Sibling replicas (3 total): 2/3 same pattern  <span class="ann">✗ systemic, not one pod</span>
+- Consumer lag on dp-events: 0                  <span class="ann">✓ processing when alive</span>
+
+<span class="cmt">Worker returns:</span>
+{ findings:   [<span class="str">"3 OOMKills in 30min — memory saturated at 97%"</span>,
+               <span class="str">"No recent deploy — not regression"</span>,
+               <span class="str">"Restart interval matches Kafka poll interval (~30s)"</span>],
+  ruled_out:  [<span class="str">"Bad deploy"</span>, <span class="str">"Network issue"</span>, <span class="str">"Kafka consumer failure"</span>],
+  confidence: <span class="num">0.55</span>,   <span class="ann">← below threshold — need logs to understand WHY heap spikes</span>
+  next_check: <span class="str">"Loki logs for dp-service — what happens every ~30s that saturates memory?"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">4</div>
+        <div class="step-content">
+          <div class="step-title">Controller routes to Obs Worker — Loki logs first <span style="color:var(--muted);font-weight:400;font-size:11px">T+29s</span></div>
+          <div class="step-detail">confidence 0.55 &lt; 0.85 → escalate. Stage 2 unlocked: Loki + Prometheus. <span class="pill stage2">Stage 2</span></div>
+          <div class="code-block" style="margin-top:8px;font-size:11px">
+<span class="cmt">Loki query: {app="dp-service", namespace="data-pipelines"} | json | last 1h</span>
+<span class="cmt">Pattern found — repeating every ~30s on all replicas:</span>
+
+[10:14:32] INFO  Processing batch of <span class="ann">5000 messages</span> from topic <span class="str">dp-events</span>
+[10:14:32] DEBUG Heap before poll: <span class="num">312</span>MB / 2048MB (15%)
+[10:14:57] DEBUG Enriching <span class="ann">5000 messages</span> — allocating List&lt;EnrichedMessage&gt;(5000)
+[10:14:58] WARN  Heap after enrichment: <span class="num">1876</span>MB / 2048MB (<span class="ann">91.6%</span>)
+[10:14:59] WARN  GC pressure — stop-the-world pause <span class="ann">1.4s</span>
+[10:15:02] ERROR <span class="str">java.lang.OutOfMemoryError: Java heap space</span>
+           at java.util.ArrayList.&lt;init&gt;(ArrayList.java:153)
+           at MessageProcessor.enrichBatch(MessageProcessor.java:87)
+[10:15:08] INFO  Processing batch of <span class="ann">5000 messages</span> from topic <span class="str">dp-events</span>
+           <span class="cmt">↑ pod restarted, same cycle begins again</span>
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">5</div>
+        <div class="step-content">
+          <div class="step-title">Obs Worker — Prometheus time series confirms pattern <span style="color:var(--muted);font-weight:400;font-size:11px">T+55s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Prometheus query: container_memory_working_set_bytes{pod=~"dp-service-.*"} — last 2h</span>
+
+Memory spikes:  300MB → <span class="ann">1.95GB</span> every ~30s (exact poll.interval.ms)
+Spike duration: 5-8s (time to enrich + hold 5000 messages)
+After each spike: OOMKill → restart → 300MB baseline → spike again
+Pattern on all 3 replicas: identical cycle, offset by ~10s
+
+<span class="cmt">Correlation with Loki: spike timestamp aligns exactly with</span>
+<span class="cmt">"Enriching 5000 messages" log line ← heap allocated for full batch simultaneously</span>
+
+{ findings:   [<span class="str">"Memory spikes 300MB → 1.95GB every 30s — matches Kafka poll interval"</span>,
+               <span class="str">"OOMKill always at enrichment step, not during Kafka poll"</span>,
+               <span class="str">"Pattern identical across all 3 replicas"</span>],
+  confidence: <span class="num">0.73</span>,   <span class="ann">← still below threshold — need to confirm BATCH_SIZE config + code path</span>
+  next_check: <span class="str">"Check dp-service ConfigMap for BATCH_SIZE / MAX_POLL_RECORDS; check MessageProcessor code"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">6</div>
+        <div class="step-content">
+          <div class="step-title">App Worker — Stage 3: ConfigMap + code inspection <span style="color:var(--muted);font-weight:400;font-size:11px">T+76s · Stage 3 unlocked</span></div>
+          <div class="step-detail" style="margin-bottom:8px"><span class="pill stage3">Stage 3</span> — deepest context tier: actual config values + code logic</div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">ConfigMap: dp-service-configmap (from K8s API)</span>
+DP_BATCH_SIZE=<span class="ann">5000</span>             <span class="cmt"># ← app reads this at startup</span>
+KAFKA_MAX_POLL_RECORDS=<span class="ann">5000</span>    <span class="cmt"># ← Kafka consumer config</span>
+KAFKA_POLL_INTERVAL_MS=25000   <span class="cmt"># ← 25s between polls</span>
+MAX_ENRICH_THREADS=4           <span class="cmt"># ← parallel enrichment threads</span>
+
+<span class="cmt">Code: github.com/org/dp-service — MessageProcessor.java (via Git adapter)</span>
+<span class="num">82</span>:  List&lt;ConsumerRecord&lt;String, RawMessage&gt;&gt; batch = consumer.poll(Duration.ofMillis(25000));
+<span class="num">83</span>:  <span class="cmt">// batch.size() = up to DP_BATCH_SIZE (5000) messages per poll</span>
+<span class="num">84</span>:
+<span class="num">85</span>:  List&lt;EnrichedMessage&gt; enriched = batch.stream()
+<span class="num">86</span>:      .map(r -&gt; enrichmentService.enrich(r.value()))  <span class="cmt">// ~160KB per enriched object</span>
+<span class="num">87</span>:      .collect(Collectors.toList());                   <span class="ann">← materializes ALL 5000 BEFORE any writes</span>
+<span class="num">88</span>:
+<span class="num">89</span>:  mongoWriter.bulkWrite(enriched);                     <span class="cmt">// writes all 5000 at once</span>
+
+<span class="cmt">Memory math:</span>
+5000 msgs × 160KB per enriched object  = ~<span class="ann">800MB</span> peak heap
++ original raw batch still in scope     = ~<span class="ann">+200MB</span>
++ JVM overhead + thread stacks          = ~<span class="ann">+300MB</span>
+= ~<span class="ann">1.3GB minimum</span> → with GC pressure headroom needed → hits 2Gi hard limit
+
+{ findings:   [<span class="str">"BATCH_SIZE=5000 configured in ConfigMap"</span>,
+               <span class="str">"All 5000 enriched objects materialized simultaneously (line 87)"</span>,
+               <span class="str">"~1.3GB minimum heap at enrichment step — exceeds 2Gi container limit"</span>],
+  confidence: <span class="num">0.96</span>   <span class="ann">← above threshold — conclude</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">7</div>
+        <div class="step-content">
+          <div class="step-title">RCA generated — confidence 0.96 ≥ 0.85 → stop escalating <span style="color:var(--muted);font-weight:400;font-size:11px">T+119s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="section">ROOT CAUSE</span>:
+  dp-service fetches <span class="ann">BATCH_SIZE=5000</span> messages per Kafka poll and materializes all 5000
+  enriched objects in heap simultaneously (MessageProcessor.java:87) before writing
+  any to MongoDB. Each enriched object is ~160KB → ~800MB allocation per batch cycle.
+  With raw messages still in scope + JVM overhead, peak heap reaches ~1.3GB,
+  exceeding the 2Gi container memory limit → OOMKill.
+
+<span class="section">EVIDENCE CHAIN</span>:
+  ConfigMap BATCH_SIZE=5000
+  → Code: collect(toList()) materialises full enriched batch before bulkWrite
+  → Loki: "Enriching 5000 messages" log → heap spikes from 312MB to 1876MB
+  → Prometheus: 300MB→1.95GB spike every 30s (Kafka poll interval)
+  → K8s: OOMKill at enrichment step, not during poll
+
+<span class="section">CONFIDENCE</span>: 0.96
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">8</div>
+        <div class="step-content">
+          <div class="step-title">Two remediation options — approval required for any action</div>
+          <div class="option-grid" style="margin-top:8px">
+            <div class="option-card option-a">
+              <div class="option-hdr a">Option A — Quick fix (30 min)</div>
+              <div class="option-detail">
+                Increase memory limit from 2Gi to <code>4Gi</code> in the deployment manifest.<br><br>
+                <strong style="color:#4ade80">Pros:</strong> Stops OOMKill immediately. No code change, no re-test needed. Safe rollout with rolling update.<br><br>
+                <strong style="color:#f87171">Cons:</strong> Does <em>not</em> fix root cause. If message size grows or BATCH_SIZE is increased, OOM will return. Costs ~$X/month in extra node memory.<br><br>
+                <strong style="color:#4ade80">Action:</strong> Edit <code>dp-service/k8s/deployment.yaml</code> → <code>resources.limits.memory: 4Gi</code> → <code>kubectl apply</code>
+              </div>
+            </div>
+            <div class="option-card option-b">
+              <div class="option-hdr b">Option B — Root cause fix (2–3 days)</div>
+              <div class="option-detail">
+                Set <code>DP_BATCH_SIZE=500</code> in ConfigMap AND refactor <code>MessageProcessor.java</code> to process in chunks of 500 within the poll loop — stream write each chunk to Mongo before loading the next.<br><br>
+                <strong style="color:#4ade80">Pros:</strong> Addresses root cause. Peak heap drops to ~130MB per chunk. Scales safely with message volume growth.<br><br>
+                <strong style="color:#f87171">Cons:</strong> Requires code review + test + deploy. Slightly higher Kafka offset commit frequency.<br><br>
+                <strong style="color:#4ade80">Expected result:</strong> Memory stabilises at 400–500MB, no OOMKills.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /steps ex2 -->
+    </div><!-- /ex2 -->
+
+    <!-- ─── EXAMPLE 3: K8s Node Pressure ─── -->
+    <div id="ex3" class="ex-section">
+    <p class="ex-title">Alert: NodeMemoryPressure + 4 pod evictions on data-processing-ng node group → node analysis → Prometheus trends → scheduling root cause → admin recommendations</p>
+
+    <!-- Investigation flow -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-hdr">Investigation flow — node-level investigation, no single service owner</div>
+      <div class="card-body" style="padding:16px">
+        <div class="inv-flow">
+          <div class="inv-node n-alert">
+            <div class="inv-label">🚨 Alert</div>
+            <div class="inv-sub">NodeMemory<br>Pressure + evictions</div>
+            <div class="inv-time">T+0s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">entity<br>extract</div></div>
+          <div class="inv-node n-k8s">
+            <div class="inv-label">K8s Worker</div>
+            <div class="inv-sub">Stage 1+2<br>Node + pods analysis</div>
+            <div class="inv-conf">conf: 0.71 ↑</div>
+            <div class="inv-time">T+3s – T+45s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">need<br>trend</div></div>
+          <div class="inv-node n-obs">
+            <div class="inv-label">Obs Worker</div>
+            <div class="inv-sub">Stage 2<br>Prometheus trends</div>
+            <div class="inv-conf">conf: 0.91 ✓</div>
+            <div class="inv-time">T+46s – T+95s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">conclude</div></div>
+          <div class="inv-node n-rca">
+            <div class="inv-label">✅ RCA</div>
+            <div class="inv-sub">Over-committed<br>nodes — low requests<br>high limits</div>
+            <div class="inv-time">T+96s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">admin<br>actions</div></div>
+          <div class="inv-node n-info">
+            <div class="inv-label">📋 Recommendations</div>
+            <div class="inv-sub">No auto-remediation<br>Admin decision needed</div>
+            <div class="inv-time">T+100s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">1</div>
+        <div class="step-content">
+          <div class="step-title">Alert arrives <span style="color:var(--muted);font-weight:400;font-size:11px">T+0s</span></div>
+          <div class="code-block" style="font-size:11px">
+{ alertname: <span class="str">"NodeMemoryPressure"</span>,
+  node:       <span class="str">"ip-10-0-1-42.ec2.internal"</span>,
+  node_group: <span class="str">"data-processing-ng"</span>,
+  cluster:    <span class="str">"prod-eks-2"</span>,
+  condition:  <span class="str">"MemoryPressure=True"</span>,
+  pods_evicted: <span class="num">4</span>,
+  env: <span class="str">"prod"</span> }
+
+<span class="cmt">+ companion alerts firing in same window:</span>
+{ alertname: <span class="str">"PodEvicted"</span>, pod: <span class="str">"analytics-worker-8b7d-rq9xz"</span> }
+{ alertname: <span class="str">"PodEvicted"</span>, pod: <span class="str">"bulkFHIR-processor-6c4f-nm3pk"</span> }
+{ alertname: <span class="str">"PodEvicted"</span>, pod: <span class="str">"dp-service-7f9c4b-xk2mn"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">2</div>
+        <div class="step-content">
+          <div class="step-title">Entity extraction + routing decision <span style="color:var(--muted);font-weight:400;font-size:11px">T+1s · ~200 tokens</span></div>
+          <div class="code-block" style="font-size:11px">
+{ entity_type: <span class="str">"node"</span>,
+  entity_name: <span class="str">"ip-10-0-1-42.ec2.internal"</span>,
+  node_group:  <span class="str">"data-processing-ng"</span>,
+  cluster:     <span class="str">"prod-eks-2"</span>,   env: <span class="str">"prod"</span> }
+
+<span class="cmt">→ Rule: entity_type=node → K8s Worker (infra path)</span>
+<span class="cmt">→ No single service owner → investigate node + ALL pods on node</span>
+<span class="cmt">→ Companion PodEvicted alerts: bulkFHIR-processor, dp-service, analytics-worker — all same node</span>
+<span class="cmt">   These 3 are neighbours in the Dataflow Graph (bulkFHIR → dp-events → dp-service → analytics)</span>
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">3</div>
+        <div class="step-content">
+          <div class="step-title">K8s Worker — node + pod resource analysis <span style="color:var(--muted);font-weight:400;font-size:11px">T+3s · Stage 1+2 · ~1,200 tokens</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Node status:</span>
+Condition:        MemoryPressure=True
+Allocatable RAM:  7.5Gi   Allocatable CPU: 7.7 vCPU
+Kubelet eviction: threshold >90% memory → evict lowest-priority pods
+
+<span class="cmt">Pods scheduled on this node (kubectl describe node):</span>
+NAME                         REQUEST-MEM   LIMIT-MEM   ACTUAL-MEM    STATUS
+bulkFHIR-processor-6c4f      256Mi         2.0Gi       1.8Gi         Evicted
+dp-service-7f9c4b            128Mi         1.5Gi       1.4Gi         Evicted
+analytics-worker-8b7d        256Mi         2.0Gi       3.2Gi         Evicted <span class="ann">← EXCEEDS limit</span>
+coredns / kube-proxy (sys)   ~200Mi        ~400Mi      ~180Mi         Running
+
+<span class="cmt">Key numbers:</span>
+Total REQUESTS: 256+128+256+200 = <span class="ann">840Mi</span>  (K8s scheduler sees 11.2% used → "lots of space")
+Total ACTUAL:   1800+1400+3200+180 = <span class="ann">6.58Gi</span>  (87.7% of node → above eviction threshold)
+Total LIMITS:   2.0+1.5+2.0 Gi = <span class="ann">5.5Gi user + 0.4Gi sys</span> = 5.9Gi total limits
+
+{ findings:   [<span class="str">"Node packed with 3 data-processing services + sys pods"</span>,
+               <span class="str">"Total requests 11.2% but actual usage 87.7% of node"</span>,
+               <span class="str">"analytics-worker exceeding its own limit (3.2Gi > 2.0Gi limit)"</span>],
+  confidence: <span class="num">0.71</span>,
+  next_check: <span class="str">"Prometheus 5-day trend — is peak usage pattern recurring daily?"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">4</div>
+        <div class="step-content">
+          <div class="step-title">Node memory visualization — how K8s scheduler sees vs reality</div>
+          <div class="node-viz" style="margin-top:10px">
+            <div class="node-viz-header">Node: ip-10-0-1-42.ec2.internal — m5.2xlarge (7.5Gi RAM allocatable) — what K8s scheduled here based on requests</div>
+            <div class="pod-row">
+              <div class="pod-card">
+                <div class="pod-card-name">bulkFHIR-processor</div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Request (what scheduler sees)</span><span style="color:#4ade80">256Mi (3.4%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill req" style="width:3.4%"></div></div>
+                </div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Configured limit</span><span style="color:#f59e0b">2.0Gi (26.7%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill lim" style="width:26.7%"></div></div>
+                </div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Peak actual usage</span><span style="color:#f87171">1.8Gi (24%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill act" style="width:24%"></div></div>
+                </div>
+              </div>
+              <div class="pod-card">
+                <div class="pod-card-name">dp-service</div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Request (what scheduler sees)</span><span style="color:#4ade80">128Mi (1.7%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill req" style="width:1.7%"></div></div>
+                </div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Configured limit</span><span style="color:#f59e0b">1.5Gi (20%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill lim" style="width:20%"></div></div>
+                </div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Peak actual usage</span><span style="color:#f87171">1.4Gi (18.7%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill act" style="width:18.7%"></div></div>
+                </div>
+              </div>
+              <div class="pod-card" style="border-color:var(--red-b)">
+                <div class="pod-card-name" style="color:var(--red)">analytics-worker ⚠ exceeds limit</div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Request (what scheduler sees)</span><span style="color:#4ade80">256Mi (3.4%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill req" style="width:3.4%"></div></div>
+                </div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Configured limit</span><span style="color:#f59e0b">2.0Gi (26.7%)</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill lim" style="width:26.7%"></div></div>
+                </div>
+                <div class="mem-row">
+                  <div class="mem-label"><span>Peak actual usage</span><span style="color:#f87171">3.2Gi (42.7%) — OVER LIMIT</span></div>
+                  <div class="mem-bar-track"><div class="mem-bar-fill act" style="width:42.7%"></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="node-total">
+              <div class="total-item">
+                <div class="total-val" style="color:#4ade80">840Mi</div>
+                <div class="total-label">Total Requests<br>(11.2% of node)<br><span class="overcommit-badge">scheduler sees</span></div>
+              </div>
+              <div class="total-item">
+                <div class="total-val" style="color:#f59e0b">5.5Gi</div>
+                <div class="total-label">Total Limits<br>(73% of node)<br><span class="overcommit-badge">limit / request = 8.6×</span></div>
+              </div>
+              <div class="total-item">
+                <div class="total-val" style="color:#f87171">6.58Gi</div>
+                <div class="total-label">Peak Actual<br>(87.7% of node)<br><span class="overcommit-badge">NODE PRESSURE</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">5</div>
+        <div class="step-content">
+          <div class="step-title">Obs Worker — Prometheus 5-day trend <span style="color:var(--muted);font-weight:400;font-size:11px">T+46s · Stage 2</span></div>
+          <div class="step-detail" style="margin-bottom:8px">Is this a one-off event or recurring pattern? <span class="pill stage2">Stage 2</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Prometheus query: container_memory_working_set_bytes{node="ip-10-0-1-42",container!=""}  — 5 days</span>
+
+<span class="cmt">Daily peak usage window (all 3 services, same pattern Mon–Fri):</span>
+14:00 UTC  bulkFHIR-processor memory starts rising  (batch processing window opens)
+14:15 UTC  dp-service memory rises                   (downstream of bulkFHIR)
+14:30 UTC  analytics-worker memory rises             (Mongo report queries begin)
+15:00 UTC  <span class="ann">ALL THREE AT PEAK SIMULTANEOUSLY</span>          (node pressure window)
+15:30 UTC  gradual decrease
+
+<span class="cmt">Peak overlap analysis (14:45–15:30 UTC daily):</span>
+bulkFHIR-processor:  avg 1.7Gi, max 1.9Gi
+dp-service:          avg 1.3Gi, max 1.6Gi
+analytics-worker:    avg 2.8Gi, max 3.4Gi  ← <span class="ann">well above its 2Gi limit — being throttled by cgroups</span>
+System pods:         ~0.2Gi constant
+
+Combined peak:       ~7.1Gi / 7.5Gi allocatable = <span class="ann">94.7%</span>  → above kubelet eviction threshold (90%)
+
+<span class="cmt">Affected nodes: ALL 3 nodes in data-processing-ng show identical pattern</span>
+<span class="cmt">→ This is NOT one bad node — it is a systemic scheduling issue on the entire node group</span>
+
+{ findings:   [<span class="str">"Pattern recurring daily Mon–Fri for 5+ days"</span>,
+               <span class="str">"Peak overlap 14:45–15:30 UTC causes 94.7% node memory utilisation"</span>,
+               <span class="str">"analytics-worker consistently exceeds its 2Gi limit (actual 2.8–3.4Gi)"</span>,
+               <span class="str">"All 3 nodes in data-processing-ng affected — systemic, not isolated"</span>],
+  confidence: <span class="num">0.91</span>   <span class="ann">← above threshold — conclude</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">6</div>
+        <div class="step-content">
+          <div class="step-title">Why K8s scheduler made this decision — root cause explained <span style="color:var(--muted);font-weight:400;font-size:11px">T+96s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="section">ROOT CAUSE</span>:
+  Three memory-intensive services (bulkFHIR-processor, dp-service, analytics-worker)
+  are co-scheduled on the same nodes because their Kubernetes resource <span class="ann">requests</span>
+  are extremely under-provisioned (total 840Mi = 11.2% of node).
+  The K8s scheduler packs pods using requests as the placement signal, not actual usage.
+  When all three hit peak usage simultaneously during the data processing window
+  (14:45–15:30 UTC daily), combined actual memory (6.58Gi) exceeds node capacity → eviction cascade.
+
+<span class="section">SCHEDULER DECISION LOGIC</span> (why it packed them):
+  K8s sees available node memory = 7.5Gi − 840Mi (requests) = 6.66Gi "free"
+  → places all 3 services: "plenty of headroom"
+  → BUT actual peak usage is 6.38Gi — almost no real headroom at all
+
+<span class="section">OVER-COMMIT RATIO</span>:
+  limit / request  = 5.5Gi / 840Mi = <span class="ann">8.6×</span>  (safe range for production: 1.5–3×)
+  actual / request = 6.58Gi / 840Mi = <span class="ann">7.8×</span>  (actual usage vs what scheduler reserved)
+
+<span class="section">NOTE</span>: This is <span class="ann">expected K8s behaviour</span> — the scheduler is working correctly.
+  The problem is the requests are wrong, not the scheduler.
+  Auto-remediation not applicable here — this requires deliberate admin decisions.
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">7</div>
+        <div class="step-content">
+          <div class="step-title">Admin recommendations — 5 options (no auto-fix applied) <span style="color:var(--muted);font-weight:400;font-size:11px">T+100s</span></div>
+          <div class="step-detail" style="margin-bottom:12px">Presented to the on-call engineer for review. System does not auto-apply any of these changes.</div>
+          <div class="rec-grid">
+            <div class="rec-card">
+              <div class="rec-card-hdr"><span class="rec-badge immediate">Immediate · High Priority</span></div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:6px">A — Right-size requests to P95 actual</div>
+              <div class="rec-body">
+                Set requests closer to observed P95 usage so the scheduler uses accurate placement signals:<br>
+                <code>bulkFHIR-processor: request → 1.5Gi</code> (was 256Mi)<br>
+                <code>dp-service: request → 1.0Gi</code> (was 128Mi)<br>
+                <code>analytics-worker: request → 2.5Gi, limit → 3.5Gi</code><br><br>
+                Scheduler now sees 5Gi used → will spread pods across nodes rather than packing 3 per node.
+              </div>
+              <div class="rec-outcome">✓ Prevents co-scheduling, eliminates pressure within 1 rollout</div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-card-hdr"><span class="rec-badge medium">Medium Priority</span></div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:6px">B — Dedicated node group for analytics-worker</div>
+              <div class="rec-body">
+                analytics-worker has 3–5× higher memory than the others and consistently exceeds its own limit.
+                Move it to a dedicated <code>analytics-ng</code> group with larger instance type (e.g. <code>r5.xlarge</code>, 32Gi RAM).<br><br>
+                Isolates the highest-memory workload from latency-sensitive services.
+              </div>
+              <div class="rec-outcome">✓ Removes biggest pressure contributor from shared nodes</div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-card-hdr"><span class="rec-badge medium">Medium Priority</span></div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:6px">C — Pod anti-affinity to prevent co-scheduling</div>
+              <div class="rec-body">
+                Add <code>podAntiAffinity</code> rules to bulkFHIR-processor and analytics-worker to prefer not running on the same node:<br>
+                <code>preferredDuringScheduling...</code><br>
+                <code>labelSelector: {app: analytics-worker}</code><br>
+                <code>weight: 100</code><br><br>
+                Even if requests are wrong, this adds a scheduling hint to distribute them.
+              </div>
+              <div class="rec-outcome">✓ Reduces probability of all 3 on same node</div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-card-hdr"><span class="rec-badge longterm">Long-Term</span></div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:6px">D — Vertical Pod Autoscaler (VPA) in Recommendation mode</div>
+              <div class="rec-body">
+                Enable VPA for all 3 services in <code>Off</code> mode (recommendation only, no auto-apply). VPA observes real usage and suggests right-sized requests and limits weekly.<br><br>
+                Review VPA recommendations every sprint and update manifests accordingly. Prevents request drift over time as message volumes grow.
+              </div>
+              <div class="rec-outcome">✓ Self-tuning, prevents this problem from recurring as load grows</div>
+            </div>
+          </div>
+          <div class="rec-card" style="margin-top:10px">
+            <div class="rec-card-hdr"><span class="rec-badge longterm">Long-Term · Optional</span></div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:6px">E — PriorityClass for graceful eviction order</div>
+            <div class="rec-body">
+              When eviction is unavoidable, ensure the least critical service is evicted first:<br>
+              <code>analytics-worker</code>: <code>priority: 100</code> (batch reports — least time-sensitive)<br>
+              <code>dp-service</code>: <code>priority: 500</code><br>
+              <code>bulkFHIR-processor</code>: <code>priority: 1000</code> (patient data ingestion — most critical)<br><br>
+              Currently all three evict in arbitrary order — bulkFHIR-processor may be evicted even though it is the highest-value workload.
+            </div>
+            <div class="rec-outcome">✓ Protects highest-value services when node pressure cannot be avoided</div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /steps ex3 -->
+    </div><!-- /ex3 -->
+
+    <!-- ─── EXAMPLE 4: Airflow DAG — Third-Party API Down ─── -->
+    <div id="ex4" class="ex-section">
+    <p class="ex-title">PagerDuty alert: bulkFHIR_transform_dag failing 3× consecutive → Airflow task logs → network probe → root cause: third-party FHIR API unreachable</p>
+
+    <!-- Investigation flow -->
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-hdr">Investigation flow — DAG path: Airflow → Loki task logs → network probe → external API</div>
+      <div class="card-body" style="padding:16px">
+        <div class="inv-flow">
+          <div class="inv-node n-alert">
+            <div class="inv-label">📟 PagerDuty</div>
+            <div class="inv-sub">DAG failed<br>3× consecutive</div>
+            <div class="inv-time">T+0s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">entity<br>extract</div></div>
+          <div class="inv-node n-k8s" style="border-color:#fb923c;background:#2d1500">
+            <div class="inv-label" style="color:#fb923c">Airflow Worker</div>
+            <div class="inv-sub">Stage 1<br>DAG runs · task errors</div>
+            <div class="inv-conf">conf: 0.62 ↑</div>
+            <div class="inv-time">T+3s – T+30s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">need<br>task logs</div></div>
+          <div class="inv-node n-obs">
+            <div class="inv-label">Obs Worker</div>
+            <div class="inv-sub">Stage 2<br>Loki: task stderr</div>
+            <div class="inv-conf">conf: 0.82 ↑</div>
+            <div class="inv-time">T+31s – T+68s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">verify<br>network</div></div>
+          <div class="inv-node n-info">
+            <div class="inv-label">Infra Worker</div>
+            <div class="inv-sub">DNS · TCP probe<br>egress check</div>
+            <div class="inv-conf">conf: 0.97 ✓</div>
+            <div class="inv-time">T+69s – T+95s</div>
+          </div>
+          <div class="inv-arrow">→<div class="inv-arrow-label">conclude</div></div>
+          <div class="inv-node n-rca">
+            <div class="inv-label">✅ RCA</div>
+            <div class="inv-sub">3rd-party FHIR API<br>unreachable — our<br>infra is healthy</div>
+            <div class="inv-time">T+96s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">1</div>
+        <div class="step-content">
+          <div class="step-title">PagerDuty alert arrives <span style="color:var(--muted);font-weight:400;font-size:11px">T+0s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">PagerDuty webhook payload:</span>
+{ <span class="key">"incident_key"</span>:         <span class="str">"PD-38291"</span>,
+  <span class="key">"alert_name"</span>:           <span class="str">"AirflowDAGConsecutiveFailure"</span>,
+  <span class="key">"service"</span>:              <span class="str">"bulkFHIR-transform"</span>,
+  <span class="key">"severity"</span>:             <span class="str">"critical"</span>,
+  <span class="key">"details"</span>: {
+    <span class="key">"dag_id"</span>:              <span class="str">"bulkFHIR_transform_dag"</span>,
+    <span class="key">"failed_task"</span>:         <span class="str">"enrich_hl7_with_fhir_api"</span>,
+    <span class="key">"consecutive_failures"</span>: <span class="num">3</span>,
+    <span class="key">"last_run_id"</span>:         <span class="str">"scheduled__2026-04-20T14:00:00Z"</span>,
+    <span class="key">"last_failure"</span>:        <span class="str">"2026-04-20T14:32:07Z"</span>,
+    <span class="key">"env"</span>:                 <span class="str">"prod"</span>
+  }
+}
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">2</div>
+        <div class="step-content">
+          <div class="step-title">Entity extraction + inventory lookup <span style="color:var(--muted);font-weight:400;font-size:11px">T+1s · ~200 tokens</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Extracted from PagerDuty details:</span>
+{ entity_type: <span class="str">"dag"</span>,  entity_name: <span class="str">"bulkFHIR_transform_dag"</span>,
+  failed_task: <span class="str">"enrich_hl7_with_fhir_api"</span>,  env: <span class="str">"prod"</span> }
+
+<span class="cmt">Inventory record — inventory/dags/bulkFHIR-transform-dag.yaml:</span>
+airflow_instance:      <span class="val">airflow-prod</span>
+owner_team:            <span class="val">data-engineering</span>
+schedule:              <span class="val">0 */2 * * *</span>              <span class="cmt"># every 2 hours</span>
+tasks:
+  - extract_from_kafka <span class="cmt"># consumes bulkFHIR-events</span>
+  - enrich_hl7_with_fhir_api                       <span class="cmt"># ← FAILED TASK</span>
+  - validate_schema
+  - write_to_hl7message                            <span class="cmt"># writes to MongoDB: hl7message collection</span>
+external_dependencies:
+  - host:    <span class="str">fhir-api.partner.health</span>
+    port:    <span class="num">443</span>
+    path:    <span class="str">/R4/Patient/$validate</span>
+    timeout: <span class="num">30s</span>
+mongo.writes:   <span class="val">hl7message</span>                        <span class="cmt"># ← hl7message collection not updated since DAG failed</span>
+loki_labels:    {app: <span class="val">airflow</span>, dag_id: <span class="val">bulkFHIR_transform_dag</span>}
+
+<span class="cmt">→ Rule fires: entity_type=dag → Airflow Worker (Stage 1)</span>
+<span class="cmt">→ external_dependency declared in inventory → pre-stage Infra Worker if Airflow findings point there</span>
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">3</div>
+        <div class="step-content">
+          <div class="step-title">Airflow Worker — Stage 1: DAG run history + task status <span style="color:var(--muted);font-weight:400;font-size:11px">T+3s · ~900 tokens</span></div>
+          <div class="step-detail" style="margin-bottom:8px">Queries Airflow REST API with inventory credentials. <span class="pill stage1">Stage 1</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Airflow REST API — last 5 DAG runs for bulkFHIR_transform_dag:</span>
+run_id                              state    duration   failed_task
+scheduled__2026-04-20T14:00:00Z     failed   32m 01s    enrich_hl7_with_fhir_api  <span class="ann">✗</span>
+scheduled__2026-04-20T12:00:00Z     failed   32m 03s    enrich_hl7_with_fhir_api  <span class="ann">✗</span>
+scheduled__2026-04-20T10:00:00Z     failed   32m 08s    enrich_hl7_with_fhir_api  <span class="ann">✗</span>
+scheduled__2026-04-20T08:00:00Z     success  4m 12s     —                         <span class="ann">✓</span>
+scheduled__2026-04-20T06:00:00Z     success  4m 09s     —                         <span class="ann">✓</span>
+
+<span class="cmt">Failure pattern analysis:</span>
+- All 3 failures: SAME task (enrich_hl7_with_fhir_api), SAME duration (~32 min = timeout × retries)
+- Last success: 2026-04-20T08:00 run  <span class="ann">→ something changed between 08:00 and 10:00</span>
+- Failure duration ~32 min = 30s timeout × 3 retries + Airflow retry overhead
+- Downstream tasks (validate_schema, write_to_hl7message): never reached
+  → hl7message collection has NOT been updated in 6 hours
+
+{ findings:   [<span class="str">"Task enrich_hl7_with_fhir_api failing 3× — exact 32min duration = timeout pattern"</span>,
+               <span class="str">"All previous tasks (extract_from_kafka) succeed — Kafka and Airflow healthy"</span>,
+               <span class="str">"hl7message MongoDB collection not updated since 08:00 — 6h data gap"</span>,
+               <span class="str">"Last successful run was 08:00 — failure onset ~10:00"</span>],
+  ruled_out:  [<span class="str">"Kafka producer issue"</span>, <span class="str">"Airflow worker crash"</span>, <span class="str">"DAG code change"</span>],
+  confidence: <span class="num">0.62</span>,
+  next_check: <span class="str">"Loki task logs for enrich_hl7_with_fhir_api — exact error + API endpoint details"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">4</div>
+        <div class="step-content">
+          <div class="step-title">Obs Worker — Loki: Airflow task stderr logs <span style="color:var(--muted);font-weight:400;font-size:11px">T+31s · Stage 2</span></div>
+          <div class="step-detail" style="margin-bottom:8px">confidence 0.62 &lt; 0.85 → escalate. Fetch task-level logs from Loki. <span class="pill stage2">Stage 2</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Loki query: {app="airflow", dag_id="bulkFHIR_transform_dag", task_id="enrich_hl7_with_fhir_api"}</span>
+<span class="cmt">3 runs — same error across all three (run 14:00 shown):</span>
+
+[14:00:11] INFO  Task started — enriching batch of 847 HL7 messages
+[14:00:11] INFO  Calling FHIR validation API: <span class="ann">https://fhir-api.partner.health/R4/Patient/$validate</span>
+[14:00:11] DEBUG HTTP POST attempt 1/3 — timeout: 30s
+[14:00:41] WARN  Attempt 1 timed out after 30s — no response from host
+[14:00:41] DEBUG HTTP POST attempt 2/3 — retry backoff: 60s
+[14:01:41] WARN  Attempt 2 timed out after 30s — no response from host
+[14:01:41] DEBUG HTTP POST attempt 3/3 — retry backoff: 120s
+[14:03:41] WARN  Attempt 3 timed out after 30s — no response from host
+[14:03:41] ERROR <span class="ann">requests.exceptions.ConnectTimeout</span>: HTTPSConnectionPool(
+           host=<span class="str">'fhir-api.partner.health'</span>, port=443): Max retries exceeded
+           with url: /R4/Patient/$validate
+[14:03:41] ERROR Task failed — AirflowException: enrich_hl7_with_fhir_api raised ConnectTimeout
+
+<span class="cmt">Key observations from logs:</span>
+- DNS did resolve (ConnectTimeout, NOT ConnectionError/NameResolutionError)  <span class="ann">← DNS is fine</span>
+- TCP SYN was sent but no SYN-ACK received within 30s                         <span class="ann">← TCP layer timing out</span>
+- Same behaviour on all 3 attempts — not a transient blip                     <span class="ann">← persistent issue</span>
+- Failure time 10:00 matches: partner may have taken API offline ~09:50 UTC
+
+{ findings:   [<span class="str">"ConnectTimeout to fhir-api.partner.health:443 — TCP handshake never completes"</span>,
+               <span class="str">"DNS resolution succeeds — IP-layer or service outage on partner side"</span>,
+               <span class="str">"3 consecutive DAG runs × 3 retries each = 9 timeouts in 6 hours"</span>],
+  confidence: <span class="num">0.82</span>,
+  next_check: <span class="str">"Infra Worker — verify our egress is healthy; confirm issue is on partner side"</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num active">5</div>
+        <div class="step-content">
+          <div class="step-title">Infra Worker — network probe: is our egress healthy? <span style="color:var(--muted);font-weight:400;font-size:11px">T+69s · Stage 2</span></div>
+          <div class="step-detail" style="margin-bottom:8px">Eliminates internal causes before blaming the external party. <span class="pill stage2">Stage 2</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="cmt">Checks run from Airflow worker nodes (prod-eks-2 / data-pipelines namespace):</span>
+
+<span class="cmt">① DNS resolution:</span>
+nslookup fhir-api.partner.health  →  <span class="ann">104.18.22.47  (resolves OK ✓)</span>
+
+<span class="cmt">② TCP handshake to port 443:</span>
+nc -zv 104.18.22.47 443 --timeout 10s  →  <span class="ann">Connection timed out (no SYN-ACK received ✗)</span>
+
+<span class="cmt">③ TCP to other external HTTPS endpoints (control check):</span>
+nc -zv api.github.com 443             →  <span class="ann">Connected ✓  (our egress is working)</span>
+nc -zv api.pagerduty.com 443          →  <span class="ann">Connected ✓</span>
+
+<span class="cmt">④ Security group / NAT gateway egress rule check:</span>
+Outbound rule 443 to 0.0.0.0/0        →  <span class="ann">Allowed ✓</span>
+NAT gateway active, recent flows:      →  <span class="ann">Healthy ✓</span>
+
+<span class="cmt">⑤ Same probe from staging Airflow worker (different VPC):</span>
+nc -zv 104.18.22.47 443               →  <span class="ann">Connection timed out ✗  ← confirms it is NOT our network</span>
+
+<span class="cmt">⑥ Partner status page (https://status.partner.health):</span>
+Current status: <span class="ann">🔴 FHIR API — Major Outage — Investigating (since 09:51 UTC)</span>
+
+{ findings:   [<span class="str">"Our DNS, egress, NAT gateway, and security groups are all healthy"</span>,
+               <span class="str">"TCP connects to other external hosts succeed — not a VPC/NAT issue"</span>,
+               <span class="str">"Same timeout from staging VPC — rules out our infrastructure entirely"</span>,
+               <span class="str">"Partner status page confirms: FHIR API Major Outage since 09:51 UTC"</span>],
+  ruled_out:  [<span class="str">"Our DNS failure"</span>, <span class="str">"NAT gateway issue"</span>, <span class="str">"Security group misconfiguration"</span>,
+               <span class="str">"Airflow worker pod networking"</span>],
+  confidence: <span class="num">0.97</span>   <span class="ann">← above threshold — conclude</span> }
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">6</div>
+        <div class="step-content">
+          <div class="step-title">RCA generated — confidence 0.97 ≥ 0.85 → stop <span style="color:var(--muted);font-weight:400;font-size:11px">T+96s</span></div>
+          <div class="code-block" style="font-size:11px">
+<span class="section">ROOT CAUSE</span>:
+  Third-party FHIR validation API (<span class="ann">fhir-api.partner.health:443/R4/Patient/$validate</span>)
+  has been experiencing a Major Outage since 09:51 UTC (per partner status page).
+  Task <span class="ann">enrich_hl7_with_fhir_api</span> in bulkFHIR_transform_dag reaches the API for each
+  batch of HL7 messages; with the API unreachable, all 3 × 3 attempts timeout at 30s each.
+
+<span class="section">EVIDENCE CHAIN</span>:
+  PagerDuty: 3× consecutive DAG failures since 10:00 UTC
+  → Airflow: same task fails each run, exact 32-min duration = timeout × retries
+  → Loki: ConnectTimeout to fhir-api.partner.health:443 — TCP never completes
+  → Infra probe: our DNS ✓, egress ✓, NAT ✓, other external hosts reachable ✓
+  → Partner status page: 🔴 Major Outage confirmed since 09:51 UTC
+
+<span class="section">IMPACT</span>:
+  hl7message MongoDB collection has NOT been updated for 6 hours (since 08:00 run).
+  All downstream consumers of hl7message are reading stale data.
+
+<span class="section">CONFIDENCE</span>: 0.97
+<span class="section">OWNER</span>:      External — partner engineering team responsible for resolution
+</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-line"></div>
+        <div class="step-num done">7</div>
+        <div class="step-content">
+          <div class="step-title">Three options — approval required for any action</div>
+          <div class="option-grid" style="margin-top:8px">
+            <div class="option-card option-a">
+              <div class="option-hdr a">Option A — Wait + monitor (no action needed)</div>
+              <div class="option-detail">
+                Partner API outage is confirmed external. No action on our side can fix this.<br><br>
+                <strong style="color:#4ade80">Action:</strong> Subscribe to partner status page updates. Set up a Prometheus <code>probe_success</code> target on <code>fhir-api.partner.health:443</code> so Grafana dashboard and PagerDuty alert automatically when the API recovers.<br><br>
+                <strong style="color:#4ade80">When API recovers:</strong> Manually re-trigger the last 3 failed DAG runs via Airflow UI or REST API:<br>
+                <code>POST /api/v1/dags/bulkFHIR_transform_dag/dagRuns</code><br><br>
+                Monitor that <code>hl7message</code> collection backfills successfully (pending count returns to 0).
+              </div>
+            </div>
+            <div class="option-card" style="background:#1a0d2d;border-color:#6b21a8">
+              <div class="option-hdr" style="color:#c084fc">Option B — Circuit breaker + dead-letter queue (medium priority, 1–2 sprints)</div>
+              <div class="option-detail">
+                Add a circuit breaker pattern around the <code>enrich_hl7_with_fhir_api</code> task. On repeated failures, trip the circuit and route HL7 messages to a dead-letter Kafka topic (<code>bulkFHIR-enrich-retry</code>) rather than failing the whole DAG.<br><br>
+                A separate lightweight consumer processes the dead-letter queue once the API recovers, enriching the backlogged messages without full DAG re-runs.<br><br>
+                Also implement exponential backoff with jitter (not fixed 30s × 3) to be a better API citizen during partial outages.
+              </div>
+            </div>
+            <div class="option-card" style="background:#0d2224;border-color:#0f5151">
+              <div class="option-hdr" style="color:#2dd4bf">Option C — Graceful degradation fallback (long-term)</div>
+              <div class="option-detail">
+                Pre-cache FHIR validation results for known patient ID patterns in Redis/MongoDB. During API outages, the enrichment task falls back to the cache for known records and flags unknowns as <code>pending_validation</code>.<br><br>
+                DAG continues writing to <code>hl7message</code> with enriched records where cache hit, and a <code>pending_validation=true</code> flag on unknowns. A separate reconciliation DAG (<code>bulkFHIR_revalidate_dag</code>) clears pending flags once the API recovers.<br><br>
+                Eliminates data gaps in <code>hl7message</code> even during extended partner outages.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /steps ex4 -->
+    </div><!-- /ex4 -->
+
+  </div><!-- /tab-e2e -->
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- TAB 6 — ENVIRONMENTS & CLUSTERS                 -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="tab-envs" class="panel">
+    <h2>Environments &amp; Clusters — Where Config Lives</h2>
+    <p class="note">When an alert says "prod-eks-2" or a user says "check staging", the controller maps that to connection details, credentials, and access constraints.</p>
+
+    <div class="grid-2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-hdr"><span class="pill env">prod</span> environments/prod.yaml</div>
+        <div class="code-block" style="font-size:11px">
+<span class="section">name</span>: <span class="val">prod</span>
+<span class="section">aliases</span>: [<span class="val">production</span>, <span class="val">prd</span>]  <span class="cmt"># user says "production" → maps here</span>
+<span class="section">approval_required</span>: <span class="val">true</span>    <span class="cmt"># ALL write actions need approval in prod</span>
+<span class="section">auto_remediation</span>: <span class="val">false</span>
+
+<span class="section">clusters</span>:
+  <span class="key">eks</span>:
+    - <span class="key">id</span>: <span class="val">prod-eks-1</span>
+      <span class="key">region</span>: <span class="val">us-east-1</span>
+      <span class="key">purpose</span>: <span class="val">api-services</span>
+      <span class="key">kubeconfig_ref</span>: <span class="val">vault:prod/eks/prod-eks-1/kubeconfig</span>
+      <span class="key">namespaces</span>: [<span class="val">api</span>, <span class="val">processing</span>, <span class="val">internal</span>]
+    - <span class="key">id</span>: <span class="val">prod-eks-2</span>
+      <span class="key">region</span>: <span class="val">us-west-2</span>
+      <span class="key">purpose</span>: <span class="val">data-processing</span>
+      <span class="key">kubeconfig_ref</span>: <span class="val">vault:prod/eks/prod-eks-2/kubeconfig</span>
+      <span class="key">namespaces</span>: [<span class="val">data-pipelines</span>, <span class="val">jobs</span>]
+
+  <span class="key">mongo</span>:
+    - <span class="key">id</span>: <span class="val">mongo-cluster-A</span>
+      <span class="key">purpose</span>: <span class="val">primary processing DB</span>
+      <span class="key">connection_ref</span>: <span class="val">vault:prod/mongo/cluster-a/uri</span>
+      <span class="key">databases</span>: [<span class="val">processing_db</span>, <span class="val">analytics_db</span>]
+      <span class="key">read_only</span>: <span class="val">true</span>           <span class="cmt"># agent can only read</span>
+
+  <span class="key">kafka</span>:
+    - <span class="key">id</span>: <span class="val">kafka-prod-1</span>
+      <span class="key">brokers_ref</span>: <span class="val">vault:prod/kafka/prod-1/brokers</span>
+      <span class="key">topics_pattern</span>: <span class="str">"^(bulkFHIR|dp|recon)-.*"</span>
+
+  <span class="key">airflow</span>:
+    - <span class="key">id</span>: <span class="val">airflow-prod</span>
+      <span class="key">url</span>: <span class="val">https://airflow.prod.internal</span>
+      <span class="key">auth_ref</span>: <span class="val">vault:prod/airflow/api-key</span>
+</div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="pill env">staging</span> environments/staging.yaml</div>
+        <div class="code-block" style="font-size:11px">
+<span class="section">name</span>: <span class="val">staging</span>
+<span class="section">aliases</span>: [<span class="val">stg</span>, <span class="val">stage</span>]
+<span class="section">approval_required</span>: <span class="val">false</span>   <span class="cmt"># auto-remediation OK in staging</span>
+<span class="section">auto_remediation</span>: <span class="val">true</span>
+
+<span class="section">clusters</span>:
+  <span class="key">eks</span>:
+    - <span class="key">id</span>: <span class="val">staging-eks-1</span>
+      <span class="key">region</span>: <span class="val">us-east-1</span>
+      <span class="key">kubeconfig_ref</span>: <span class="val">vault:staging/eks/staging-eks-1/kubeconfig</span>
+      <span class="key">namespaces</span>: [<span class="val">data-pipelines</span>, <span class="val">api</span>]
+
+  <span class="key">mongo</span>:
+    - <span class="key">id</span>: <span class="val">mongo-cluster-staging</span>
+      <span class="key">connection_ref</span>: <span class="val">vault:staging/mongo/uri</span>
+      <span class="key">databases</span>: [<span class="val">processing_db</span>]
+
+  <span class="key">kafka</span>:
+    - <span class="key">id</span>: <span class="val">kafka-staging-1</span>
+      <span class="key">brokers_ref</span>: <span class="val">vault:staging/kafka/brokers</span>
+
+  <span class="key">airflow</span>:
+    - <span class="key">id</span>: <span class="val">airflow-staging</span>
+      <span class="key">url</span>: <span class="val">https://airflow.staging.internal</span>
+      <span class="key">auth_ref</span>: <span class="val">vault:staging/airflow/api-key</span>
+</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hdr">How controller resolves environment from alert or query — decision table</div>
+      <table>
+        <thead><tr><th>Input</th><th>Resolved env</th><th>Cluster used</th><th>Approval needed?</th></tr></thead>
+        <tbody>
+          <tr><td>Alert label: <code>env: prod</code></td><td><span class="pill env">prod</span></td><td>From inventory → cluster field for that service</td><td><span class="pill err">Yes — always</span></td></tr>
+          <tr><td>Alert label: <code>cluster: prod-eks-2</code></td><td><span class="pill env">prod</span></td><td>prod-eks-2 directly</td><td><span class="pill err">Yes</span></td></tr>
+          <tr><td>User says "check staging"</td><td><span class="pill env">staging</span></td><td>staging-eks-1</td><td><span class="pill ok">No — auto allowed</span></td></tr>
+          <tr><td>User says "check production"</td><td><span class="pill env">prod</span></td><td>From service inventory</td><td><span class="pill err">Yes</span></td></tr>
+          <tr><td>No env in alert, service in inventory</td><td>From inventory <code>environments</code> map for that service</td><td>Per inventory</td><td><span class="pill err">Yes if prod</span></td></tr>
+          <tr><td>Unknown cluster name in alert</td><td>Fallback: ask user or check all env configs for match</td><td>Matched by ID</td><td><span class="pill warn">Ask first</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-hdr">Credential access pattern — never credentials in prompt or memory</div>
+      <div class="code-block" style="font-size:11px">
+<span class="cmt">// How controller accesses prod-eks-2</span>
+<span class="num">1.</span> Inventory record has: credentials_ref = <span class="str">"vault:prod/eks/prod-eks-2"</span>
+<span class="num">2.</span> At query time: fetch kubeconfig from Vault using agent's own service token
+<span class="num">3.</span> Pass kubeconfig to K8s adapter as a transient in-memory credential
+<span class="num">4.</span> Credential is NOT stored in investigation context, NOT passed to LLM
+<span class="num">5.</span> Adapter makes K8s API call, returns structured result only
+<span class="num">6.</span> Credential discarded after call
+
+<span class="cmt">// Vault path convention</span>
+vault:<span class="str">{env}</span>/<span class="str">{platform}</span>/<span class="str">{resource-id}</span>/<span class="str">{secret-type}</span>
+
+vault:prod/eks/prod-eks-2/kubeconfig
+vault:prod/mongo/cluster-a/uri
+vault:prod/kafka/prod-1/brokers
+vault:prod/airflow/api-key
+vault:staging/eks/staging-eks-1/kubeconfig
+
+<span class="cmt">// Controller never has "vault:*" strings in LLM context</span>
+<span class="cmt">// Only the adapter layer resolves these — clean separation</span>
+</div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-hdr">What happens if environment or cluster is unknown in alert</div>
+      <div class="code-block" style="font-size:11px">
+<span class="cmt">Scenario: alert arrives with unknown cluster "eks-data-03" not in any env config</span>
+
+<span class="section">Step 1:</span> Controller checks all env configs — no match for "eks-data-03"
+<span class="section">Step 2:</span> Fallback lookup — check Kubernetes API (if accessible) for cluster labels
+<span class="section">Step 3:</span> If still unknown → controller responds:
+  <span class="str">"Unknown cluster 'eks-data-03'. Known clusters: prod-eks-1, prod-eks-2, staging-eks-1.
+   Please confirm which environment this belongs to, or add it to environments config."</span>
+
+<span class="section">Step 4:</span> Investigation paused — does NOT guess or proceed without valid cluster context
+<span class="cmt">This prevents the controller from accidentally running against wrong cluster</span>
+
+<span class="cmt">For unknown entity names (service not in inventory):</span>
+<span class="section">Step 1:</span> Try dataflow graph lookup by name
+<span class="section">Step 2:</span> Try observability label match (loki/prometheus labels search)
+<span class="section">Step 3:</span> Cache inferred mapping for future — add to inventory as unverified entry
+<span class="section">Step 4:</span> Proceed with low-confidence flag on findings
+</div>
+    </div>
+  </div>
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:40px 0 20px"/>
+  <div style="text-align:center;padding-bottom:32px">
+    <div style="margin-bottom:8px">
+      <span style="color:#555;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase">Architect</span>
+      <span style="color:#5b8ff9;font-weight:700;font-size:13px;margin-left:7px">Chandrika Prasad</span>
+    </div>
+    <div style="margin-bottom:6px">
+      <span style="color:#555;font-size:11px;letter-spacing:.04em;text-transform:uppercase">Stack</span>
+      <span style="color:#444;margin:0 8px;font-size:13px">—</span>
+      <span style="color:#c084fc;font-weight:700;font-size:13px">Infinity-Sentinel</span>
+      <span style="color:#555;font-size:11px;font-style:italic;margin-left:6px">(Agentic AI Troubleshooter)</span>
+    </div>
+    <div style="font-size:11px;color:#444;margin-top:4px">
+      <span style="color:#555;font-weight:500">Supports:</span>
+      <span style="color:#5b8ff9;margin-left:8px">EKS</span>
+      <span style="color:#333;margin:0 5px">/</span>
+      <span style="color:#5b8ff9">AKS</span>
+      <span style="color:#333;margin:0 8px">·</span>
+      <span style="color:#fb923c">Airflow</span>
+      <span style="color:#333;margin:0 8px">·</span>
+      <span style="color:#4ade80">MSK</span>
+      <span style="color:#333;margin:0 8px">·</span>
+      <span style="color:#c084fc">MongoDB</span>
+      <span style="color:#333;margin:0 8px">·</span>
+      <span style="color:#f87171">RDS</span>
+      <span style="color:#333;margin:0 8px">·</span>
+      <span style="color:#2dd4bf">Observability</span>
+      <span style="color:#555;font-size:10px;margin-left:3px">(Prometheus · Loki · Grafana)</span>
+      <span style="color:#333;margin:0 8px">·</span>
+      <span style="color:#f59e0b">PagerDuty</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function show(id, el) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    el.classList.add('active');
+  }
+  function showEx(id, el) {
+    document.querySelectorAll('.ex-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.ex-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>

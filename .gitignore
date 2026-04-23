@@ -1,0 +1,20 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.env
+*.jsonl
+# Controller runtime audit log (mount a disk here in prod)
+controller/data/
+# Legacy default (do not use); remove if still on disk from older builds
+/data/
+
+# Example projects are separate git clones; do not track as embedded repos
+context/exampleProjects/holmesgpt/
+context/exampleProjects/incidentfox/

@@ -1,0 +1,14 @@
+# Mount or copy to a path on the worker host, then set:
+#   WORKER_K8S_CLUSTER_MAP_PATH=/etc/fixops/cluster-map.yaml
+#
+# Each alert must set "cluster_id" to one of the keys under `clusters:`.
+# kubeconfig: path to a kubeconfig file readable by the worker process.
+# context: optional; omit or "" to use that file's current-context.
+
+clusters:
+  eks-prod-us-west-2:
+    kubeconfig: /etc/fixops/kubeconfigs/prod.yaml
+    context: arn:aws:eks:us-west-2:123456789012:cluster/my-prod-cluster
+  eks-dev-us-west-2:
+    kubeconfig: /etc/fixops/kubeconfigs/dev.yaml
+    context: arn:aws:eks:us-west-2:123456789012:cluster/my-dev-cluster

@@ -1,0 +1,8 @@
+{
+  "title": "Deployment replica mismatch",
+  "message": "Ready replicas below desired",
+  "entity_type": "deployment",
+  "name": "REPLACE_WITH_DEPLOYMENT_NAME",
+  "namespace": "REPLACE_WITH_NAMESPACE",
+  "cluster_id": "local"
+}

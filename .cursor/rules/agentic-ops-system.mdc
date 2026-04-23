@@ -1,0 +1,234 @@
+---
+description: Architecture requirements and design decisions for the metadata-driven agentic ops/RCA system
+alwaysApply: true
+---
+
+# Agentic Ops System — Requirements & Design Reference
+
+This captures the full architectural understanding before implementation begins.
+Use this as ground truth when building any part of this system.
+
+---
+
+## What this system is
+
+An **AI-powered operations/RCA system** that:
+- Receives alerts or user requests
+- Investigates the cause step by step
+- Proposes and (after approval) executes remediation
+- Works across Kubernetes, Airflow, Kafka, Mongo, RDS, and more
+
+---
+
+## Fixed architectural decisions
+
+### 1. One controller, many workers
+- Controller: owns orchestration, routing, context budget, approval gating
+- Workers: narrow domain specialists — they do NOT orchestrate each other
+- Controller calls one worker at a time, reviews output, then decides next step
+
+### 2. Workers (initial set)
+- **Infra Investigator** — EKS/Kubernetes
+- **Observability Investigator** — Prometheus / Loki / Tempo
+- **Application RCA Worker** — code, config, logic errors
+- **Data Pipeline Worker** — Airflow, Kafka, data processing
+- **Mongo/DB Worker** — collection health, query patterns, connection issues
+- **Remediation Planner** — proposes fix options
+- **Executor** — runs approved actions only
+
+### 3. Everything behind tool adapters
+Kubernetes, Airflow, Kafka, Mongo, RDS, Prometheus, Loki, Tempo, Git, Confluence, CI/CD.
+Workers never call infra directly — only through adapters.
+
+### 4. Execution is always gated
+Read-only by default. Suggest → approve → execute → verify. No exceptions.
+
+---
+
+## Two mandatory metadata layers
+
+### Layer 1: Inventory (routing + access)
+Tells the controller **where and how to inspect**.
+
+Fields per entity:
+- `entity_id`, `entity_type` (service/DAG/collection/topic/DB)
+- `runtime_type`: kubernetes / airflow / mongo / rds / kafka
+- `cluster`, `namespace`, `workload_name`
+- `environment`
+- `owner`, `repo`
+- `runbook_url`, `confluence_url`
+- `observability_bindings`: loki_labels, prometheus_labels, tempo_service
+- `credentials_ref`
+- `remediation_flags`: can_restart / can_rollback / can_pause
+
+Format: YAML in Git, loaded into a queryable DB (Postgres or Mongo).
+
+**Keep this thin** — only stable routing metadata. Not every DAG detail.
+
+### Layer 2: Dataflow / Dependency Graph (ownership resolution)
+Tells the controller **who is responsible and where to start**.
+
+Node types: service, DAG, collection, table, topic, API, DB, external-dependency
+
+Edge types: produces, consumes, writes_to, reads_from, triggers, depends_on, owned_by
+
+Example for the known workflow:
+```
+mongo-source-collection
+  → [triggers/read_by] airflow-dag: bulkfir_ingest
+  → [produces] kafka-topic: bulkfir-events
+  → [consumed_by] k8s-service: bulkfir-processor
+  → [writes_to] mongo-collection: pdata
+```
+
+Format: nodes + edges in Postgres tables or a graph DB.
+
+**At scale (many DAGs, many collections):** auto-derive from code/configs.
+Do NOT manually maintain every DAG-to-collection link. Instead:
+- Extract from DAG code (source DB, destination topic, owner)
+- Extract from app code (consumed topics, written collections, status transitions)
+- Extract from Helm/env configs (topic names, DB names, cluster bindings)
+- Keep only top-level ownership manual
+
+---
+
+## Controller decision logic (routing rules — NOT LLM guessing)
+
+```
+If alert entity = pod / node / deployment / namespace
+  → Infra path directly (no graph lookup needed)
+
+If alert entity = service / job / DAG name
+  → Inventory lookup first → resolve runtime → pick worker
+
+If alert entity = collection / table / topic / queue
+  → Dataflow graph first → resolve owning service → Inventory → pick worker
+
+If entity is unclear
+  → Fallback: observability labels, log tags, metric labels, past incidents
+```
+
+**Routing formula: LLM extracts entities → rules decide worker → worker runs**
+LLM is NOT used to choose which tool to call or which cluster to query.
+
+---
+
+## Context loading — staged and budgeted
+
+### Stage 1 (always, cheap)
+- Alert payload
+- Matched inventory record
+- 1-hop graph neighborhood
+- Recent deploy/config change
+- Basic health status
+
+### Stage 2 (only if Stage 1 is inconclusive)
+- Targeted logs (service + time range, max N lines)
+- Targeted metrics (related KPIs only, last 15–30 min)
+- DAG run status
+- Kafka consumer lag
+- DB error rates
+
+### Stage 3 (only if still unclear)
+- Code snippets (relevant service/module only — not full repo)
+- Configs
+- Runbooks/Confluence pages
+- Distributed traces
+- Past incident history
+
+**Hard limits per investigation:**
+- Max workers called: configurable ceiling
+- Max tool calls per stage: defined per worker
+- Max tokens per stage: enforced
+- Stop early if confidence threshold is met
+
+---
+
+## Worker output contract (what every worker must return)
+
+```json
+{
+  "checked": ["what was inspected"],
+  "findings": ["what was found"],
+  "evidence_refs": ["log line IDs, metric timestamps, etc."],
+  "ruled_out": ["what was eliminated"],
+  "confidence": 0.0,
+  "next_suggested_check": "optional — what controller should look at next"
+}
+```
+
+Workers return compact structured output only. No raw log dumps passed between workers.
+
+---
+
+## End-to-end flow example: "pdata failed messages increasing"
+
+1. Controller sees entity = `pdata` (collection)
+2. Queries **Dataflow graph** → resolves producer chain:
+   `mongo-source → airflow-dag → kafka-topic → k8s-consumer → pdata`
+3. Picks nearest likely failure point: **k8s consumer / app layer**
+4. Queries **Inventory** for that service → gets cluster, namespace, loki labels
+5. Calls **App/K8s Worker** → checks pod health, consumer lag, recent deploy, error logs
+6. If worker returns: "consumer healthy, no messages arriving"
+   → Controller calls **Kafka Worker** (consumer lag high, no incoming messages)
+7. If Kafka worker returns: "topic empty, no recent produce activity"
+   → Controller calls **Airflow Worker** (checks DAG run status)
+8. Airflow Worker returns: "DAG failed 10 hours ago"
+9. Controller concludes:
+   - Root cause: DAG failure
+   - Evidence chain: DAG fail → no Kafka messages → consumer idle → pdata stale
+   - Confidence: high
+   - Proposed action: re-trigger DAG after fix
+10. Ask user approval → Executor runs → verify pdata updates resume
+
+---
+
+## Known loopholes and guardrails
+
+| Risk | Guardrail |
+|---|---|
+| Stale/wrong inventory | Version in Git, validate on update, fallback to labels |
+| LLM-driven routing | Rules-first, LLM only for entity extraction and summaries |
+| Over-investigation | Max hop limit, stop-on-high-confidence policy |
+| Token bloat | Stage-gated retrieval, compact worker output contracts |
+| Wrong conclusion from partial evidence | Require evidence chain before RCA, not loudest symptom |
+| Ambiguous multi-owner collections | Primary owner field + producer/consumer priority rules |
+| Unsafe remediation | Hard approval gate, read-only default, separate Executor worker |
+| Outdated Confluence | Treat as support context only — structured metadata takes priority |
+
+---
+
+## Scale considerations
+
+- Airflow DAGs at volume
+- Mongo collections at volume
+- Multiple K8s clusters (EKS)
+- Kafka topics spanning multiple services
+
+**Do not manually maintain a full dependency graph.**
+Use hybrid model:
+- Thin manual inventory for routing (service → runtime, cluster, owner, repo)
+- Auto-derived graph from DAG code + app code + configs
+- RAG/retrieval layer over code and docs for deep understanding
+- Controller routes on metadata; workers pull code only when needed
+
+---
+
+## What is NOT locked yet (decide later)
+
+- Exact framework (LangGraph, custom, etc.)
+- Model vendors
+- How memory/incident history is stored
+- Whether workers are graph nodes, services, or MCP servers
+- Whether Executor is centralized or per-domain
+- Approval UX (chat, ticket, dashboard)
+- How aggressive auto-remediation is in lower environments
+
+---
+
+## One-line principle
+
+> Inventory tells the controller HOW to debug.
+> Dataflow tells the controller WHERE to start.
+> Workers do the reasoning. Controller does the routing.
+> Evidence first. Conclusion second. Approval before action.

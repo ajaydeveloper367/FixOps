@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Infinity-Sentinel — Tools & Architecture</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0c0c0c;--surface:#161616;--elevated:#1e1e1e;--border:#252525;--border2:#2e2e2e;
+      --text:#e8e8e8;--muted:#777;--muted2:#444;--muted3:#333;
+      --accent:#5b8ff9;--accent-dim:#121f3d;--accent-b:#1e3a5f;
+      --green:#4ade80;--green-dim:#0a2016;--green-b:#15472a;
+      --yellow:#f59e0b;--yellow-dim:#221900;--yellow-b:#6b3a00;
+      --red:#f87171;--red-dim:#220a0a;--red-b:#7f1d1d;
+      --purple:#c084fc;--purple-dim:#160a24;--purple-b:#5b21b6;
+      --teal:#2dd4bf;--teal-dim:#071c1c;--teal-b:#0d4040;
+      --orange:#fb923c;--orange-dim:#1f0d00;--orange-b:#7c2d12;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    }
+    body{background:var(--bg);color:var(--text);padding:32px 24px 80px;line-height:1.6}
+    .container{max-width:1100px;margin:0 auto}
+    h1{font-size:22px;font-weight:700;margin-bottom:4px}
+    h2{font-size:15px;font-weight:600;margin-bottom:14px;color:var(--text)}
+    h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px}
+    .subtitle{color:var(--muted);font-size:13px;margin-bottom:28px}
+    .note{font-size:11.5px;color:var(--muted);margin-bottom:16px;font-style:italic}
+
+    /* Tabs */
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:28px;border-bottom:1px solid var(--border);padding-bottom:14px}
+    .tab{padding:5px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);background:none;border:1px solid transparent;transition:all .15s}
+    .tab:hover{color:var(--accent);border-color:var(--accent)}
+    .tab.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+    .panel{display:none}.panel.active{display:block}
+
+    /* Pills */
+    .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;vertical-align:middle}
+    .pill.blue{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-b)}
+    .pill.green{background:var(--green-dim);color:var(--green);border:1px solid var(--green-b)}
+    .pill.yellow{background:var(--yellow-dim);color:var(--yellow);border:1px solid var(--yellow-b)}
+    .pill.orange{background:var(--orange-dim);color:var(--orange);border:1px solid var(--orange-b)}
+    .pill.purple{background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple-b)}
+    .pill.teal{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal-b)}
+    .pill.red{background:var(--red-dim);color:var(--red);border:1px solid var(--red-b)}
+
+    /* Code */
+    .code{background:#0e0e0e;border:1px solid var(--border2);border-radius:6px;padding:14px 16px;font-size:11.5px;font-family:'SFMono-Regular',Consolas,monospace;line-height:1.75;color:#ccc;overflow-x:auto;white-space:pre;display:block;max-width:100%}
+    .k{color:#7dd3fc}.v{color:#86efac}.s{color:#fca5a5}.n{color:#fb923c}.c{color:#3a3a3a;font-style:italic}.a{color:#f59e0b}.sec{color:#c084fc;font-weight:600}
+
+    /* ═══════════════════ TAB 1 — SYSTEM MAP ═══════════════════ */
+    .sysmap{display:flex;flex-direction:column;gap:0}
+
+    /* Layer band */
+    .layer{border:1px solid var(--border2);border-radius:9px;padding:16px 18px;margin-bottom:4px;position:relative}
+    .layer-label{position:absolute;top:-10px;left:16px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:1px 8px;border-radius:3px}
+    .layer.l-ingest{background:#1a1400;border-color:var(--yellow-b)}
+    .layer.l-ingest .layer-label{background:#1a1400;color:var(--yellow);border:1px solid var(--yellow-b)}
+    .layer.l-ctrl{background:#0e1628;border-color:var(--accent-b)}
+    .layer.l-ctrl .layer-label{background:#0e1628;color:var(--accent);border:1px solid var(--accent-b)}
+    .layer.l-worker{background:var(--green-dim);border-color:var(--green-b)}
+    .layer.l-worker .layer-label{background:var(--green-dim);color:var(--green);border:1px solid var(--green-b)}
+    .layer.l-adapter{background:#1a0d00;border-color:var(--orange-b)}
+    .layer.l-adapter .layer-label{background:#1a0d00;color:var(--orange);border:1px solid var(--orange-b)}
+    .layer.l-infra{background:var(--teal-dim);border-color:var(--teal-b)}
+    .layer.l-infra .layer-label{background:var(--teal-dim);color:var(--teal);border:1px solid var(--teal-b)}
+    .layer.l-rag{background:var(--purple-dim);border-color:var(--purple-b)}
+    .layer.l-rag .layer-label{background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple-b)}
+
+    /* Component cards inside layers */
+    .comp-row{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+    .comp{border-radius:7px;padding:10px 13px;min-width:120px;flex:1;font-size:11.5px;border:1px solid var(--border2);background:rgba(0,0,0,.35)}
+    .comp-name{font-weight:700;font-size:12px;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+    .comp-desc{font-size:10.5px;color:var(--muted);line-height:1.5}
+    .comp-tool{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;margin-top:5px;margin-right:3px;background:#111;border:1px solid var(--border2);color:#aaa}
+
+    /* Accent comps */
+    .comp.c-blue{border-color:var(--accent-b)}
+    .comp.c-green{border-color:var(--green-b)}
+    .comp.c-orange{border-color:var(--orange-b)}
+    .comp.c-purple{border-color:var(--purple-b)}
+    .comp.c-teal{border-color:var(--teal-b)}
+    .comp.c-yellow{border-color:var(--yellow-b)}
+    .comp.c-red{border-color:var(--red-b)}
+
+    /* Flow arrow between layers */
+    .flow-arrow{text-align:center;padding:6px 0;position:relative}
+    .flow-arrow-body{display:inline-flex;flex-direction:column;align-items:center;gap:2px}
+    .fa-line{width:2px;height:18px;background:var(--border2);margin:0 auto}
+    .fa-head{font-size:16px;color:var(--muted2);line-height:1}
+    .fa-label{font-size:10px;color:var(--muted2);font-style:italic;white-space:nowrap}
+    .fa-label2{font-size:9.5px;color:#333;font-family:monospace}
+
+    /* Data flow annotation on right */
+    .flow-side{display:flex;gap:16px;margin-top:10px;flex-wrap:wrap}
+    .flow-badge{font-size:10.5px;padding:4px 10px;border-radius:5px;display:inline-flex;align-items:center;gap:6px}
+    .flow-badge.fb-ctrl{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-b)}
+    .flow-badge.fb-worker{background:var(--green-dim);color:var(--green);border:1px solid var(--green-b)}
+    .flow-badge.fb-rag{background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple-b)}
+    .flow-badge.fb-out{background:var(--yellow-dim);color:var(--yellow);border:1px solid var(--yellow-b)}
+
+    /* Context stages strip */
+    .stages-strip{display:flex;gap:0;margin-top:14px;border-radius:7px;overflow:hidden;border:1px solid var(--border2)}
+    .stage-block{flex:1;padding:8px 12px;font-size:11px;text-align:center}
+    .stage-block:not(:last-child){border-right:1px solid var(--border2)}
+    .stage-block .sb-title{font-weight:700;margin-bottom:3px}
+    .stage-block .sb-tokens{font-size:10px;color:var(--muted)}
+    .stage-block .sb-model{font-size:9.5px;margin-top:3px}
+
+    /* ═══════════════════ TAB 2 — CONTROLLER ═══════════════════ */
+    .ctrl-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .ctrl-card{background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+    .ctrl-card-hdr{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--elevated);display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700}
+    .ctrl-card-body{padding:14px}
+    .tool-row{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);font-size:11.5px}
+    .tool-row:last-child{border-bottom:none}
+    .tool-name{font-weight:600;min-width:140px;color:var(--text);flex-shrink:0}
+    .tool-why{font-size:11px;color:var(--muted);line-height:1.5;flex:1}
+    .tool-badge{font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+    .tb-llm{background:#160a24;color:#c084fc;border:1px solid #5b21b6}
+    .tb-db{background:#071c1c;color:#2dd4bf;border:1px solid #0d4040}
+    .tb-cache{background:#1f0d00;color:#fb923c;border:1px solid #7c2d12}
+    .tb-rag{background:#160a24;color:#c084fc;border:1px solid #5b21b6}
+    .tb-py{background:#121f3d;color:#5b8ff9;border:1px solid #1e3a5f}
+    .tb-infra{background:#0a2016;color:#4ade80;border:1px solid #15472a}
+
+    /* ═══════════════════ TAB 3 — WORKERS ═══════════════════ */
+    .worker-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+    .wtab{padding:5px 12px;border-radius:5px;font-size:11.5px;font-weight:600;cursor:pointer;color:var(--muted);background:none;border:1px solid transparent;transition:all .15s}
+    .wtab:hover{color:var(--green);border-color:var(--green-b)}
+    .wtab.active{background:var(--green-dim);color:var(--green);border-color:var(--green-b)}
+    .wsection{display:none}.wsection.active{display:block}
+    .worker-detail{background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+    .worker-detail-hdr{padding:12px 16px;background:var(--elevated);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+    .worker-detail-title{font-size:14px;font-weight:700}
+    .worker-detail-sub{font-size:11.5px;color:var(--muted)}
+    .worker-detail-body{padding:0}
+    .adapter-section{padding:14px 16px;border-bottom:1px solid var(--border)}
+    .adapter-section:last-child{border-bottom:none}
+    .adapter-section h3{margin-bottom:10px}
+    .adapter-card{background:var(--elevated);border:1px solid var(--border2);border-radius:6px;padding:11px 13px;margin-bottom:8px}
+    .adapter-card:last-child{margin-bottom:0}
+    .ac-name{font-size:12px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+    .ac-lib{font-size:10px;font-family:monospace;background:#111;border:1px solid var(--border2);padding:1px 6px;border-radius:3px;color:#aaa}
+    .ac-desc{font-size:11px;color:var(--muted);line-height:1.5}
+    .ac-calls{margin-top:6px;font-size:10.5px;font-family:monospace;color:#5b8ff9;background:var(--accent-dim);padding:4px 8px;border-radius:4px;display:inline-block}
+
+    /* ═══════════════════ TAB 4 — AGENT PROTOCOL ═══════════════════ */
+    .proto-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+
+    /* Loop diagram */
+    .loop-diagram{background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:20px;margin-bottom:20px}
+    .loop-diagram h2{margin-bottom:16px}
+    .loop-flow{display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:8px}
+    .lf-node{background:var(--elevated);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;min-width:130px;flex-shrink:0;font-size:11.5px;text-align:center}
+    .lf-node.ctrl{border-color:var(--accent-b);background:var(--accent-dim)}
+    .lf-node.worker{border-color:var(--green-b);background:var(--green-dim)}
+    .lf-node.decision{border-color:var(--yellow-b);background:var(--yellow-dim)}
+    .lf-node.rca{border-color:var(--purple-b);background:var(--purple-dim)}
+    .lf-node.approve{border-color:var(--red-b);background:var(--red-dim)}
+    .lf-label{font-weight:700;font-size:12px;margin-bottom:3px}
+    .lf-sub{font-size:10px;color:var(--muted);line-height:1.4}
+    .lf-arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:36px;flex-shrink:0;font-size:10px;color:var(--muted2);text-align:center;gap:2px}
+    .lf-arrow-icon{font-size:18px;color:var(--muted2)}
+
+    /* State accumulation */
+    .accum-strip{display:flex;flex-direction:column;gap:0;border:1px solid var(--border2);border-radius:7px;overflow:hidden}
+    .accum-row{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border)}
+    .accum-row:last-child{border-bottom:none}
+    .accum-step{width:30px;background:var(--elevated);text-align:center;font-size:11px;font-weight:700;padding:10px 0;flex-shrink:0;border-right:1px solid var(--border)}
+    .accum-content{flex:1;padding:8px 14px;font-size:11px}
+    .accum-tokens{width:80px;text-align:right;padding:8px 14px;font-size:10.5px;color:var(--muted);font-family:monospace;border-left:1px solid var(--border)}
+    .accum-delta{font-size:10px;color:var(--green)}
+
+    /* ═══════════════════ TAB 5 — RAG & TOKENS ═══════════════════ */
+    .rag-pipeline{display:flex;align-items:center;gap:0;overflow-x:auto;padding:16px 0 8px;flex-wrap:nowrap}
+    .rp-node{background:var(--elevated);border:1px solid var(--border2);border-radius:8px;padding:11px 13px;min-width:115px;flex-shrink:0;font-size:11px;text-align:center}
+    .rp-node.source{border-color:var(--orange-b)}
+    .rp-node.embed{border-color:var(--purple-b)}
+    .rp-node.store{border-color:var(--teal-b)}
+    .rp-node.query{border-color:var(--accent-b)}
+    .rp-node.inject{border-color:var(--green-b)}
+    .rp-label{font-weight:700;font-size:11.5px;margin-bottom:3px}
+    .rp-sub{font-size:10px;color:var(--muted);line-height:1.4}
+    .rp-arrow{min-width:28px;flex-shrink:0;text-align:center;font-size:16px;color:var(--muted2)}
+
+    /* Token budget table */
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    thead th{text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);background:var(--elevated);text-transform:uppercase;letter-spacing:.05em}
+    tbody tr{border-bottom:1px solid var(--border)}
+    tbody tr:last-child{border-bottom:none}
+    tbody tr:hover td{background:#121212}
+    tbody td{padding:9px 12px;vertical-align:top}
+    .td-mono{font-family:monospace;font-size:11px}
+
+    /* Model tier cards */
+    .model-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}
+    .model-card{background:var(--elevated);border:1px solid var(--border2);border-radius:7px;padding:14px}
+    .mc-tier{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+    .mc-model{font-size:13px;font-weight:700;margin-bottom:4px}
+    .mc-when{font-size:11px;color:var(--muted);line-height:1.5}
+    .mc-tokens{font-size:11px;margin-top:6px;font-family:monospace}
+
+    /* Divider */
+    .divider{border:none;border-top:1px solid var(--border);margin:22px 0}
+
+    /* ═══════════════════ TAB 6 — CONFIDENCE SCORE ═══════════════════ */
+    .conf-band{display:flex;border-radius:8px;overflow:hidden;margin:16px 0;border:1px solid var(--border2);height:52px}
+    .cb-seg{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:10px;font-weight:700;gap:2px}
+    .cb-val{font-size:13px;font-weight:800}
+    .factor-row{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px}
+    .factor-row:last-child{border-bottom:none}
+    .factor-delta{min-width:52px;font-weight:800;font-size:13px;font-family:monospace;flex-shrink:0}
+    .factor-desc{flex:1;line-height:1.55}
+    .factor-eg{font-size:10.5px;color:var(--muted);margin-top:2px;font-style:italic}
+    .conf-decision{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+    .cd-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:7px;border:1px solid var(--border2);font-size:12px}
+    .cd-score{font-size:18px;font-weight:800;min-width:90px;font-family:monospace;flex-shrink:0}
+    .cd-label{font-weight:700;margin-bottom:2px}
+    .cd-desc{font-size:11px;color:var(--muted);line-height:1.5}
+    .cd-action{min-width:160px;text-align:right;font-size:11px;font-weight:600;flex-shrink:0}
+    .override-card{background:#0e0e0e;border:1px solid var(--border2);border-radius:7px;padding:14px 16px;margin-bottom:10px}
+    .override-title{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;gap:8px;align-items:center}
+    .walkthrough-step{display:grid;grid-template-columns:110px 1fr 120px;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);align-items:start;font-size:12px}
+    .walkthrough-step:last-child{border-bottom:none}
+    .wt-worker{font-weight:700}
+    .wt-why{color:var(--muted);font-size:11.5px;line-height:1.55}
+    .wt-score{text-align:right;font-family:monospace;font-size:14px;font-weight:800}
+
+    /* ═══════════════════ TAB 7 — OSS COMPARISON ═══════════════════ */
+    .cmp-wrap{overflow-x:auto}
+    .cmp-table{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}
+    .cmp-table thead th{padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--border2);text-align:center}
+    .cmp-table thead th:first-child{text-align:left}
+    .cmp-table thead th.th-us{background:var(--purple-dim);color:var(--purple);border-bottom-color:var(--purple-b)}
+    .cmp-table tbody tr{border-bottom:1px solid var(--border)}
+    .cmp-table tbody tr:hover td{background:#111}
+    .cmp-table td{padding:9px 14px;vertical-align:top}
+    .cmp-table td:not(:first-child){text-align:center;vertical-align:middle}
+    .cmp-feat{font-weight:600;font-size:12px}
+    .cmp-feat-sub{font-size:10.5px;color:var(--muted);margin-top:2px;font-weight:400}
+    .cmp-yes{color:var(--green);font-size:15px}
+    .cmp-no{color:var(--red-b);font-size:13px;font-weight:700}
+    .cmp-part{color:var(--yellow);font-size:13px}
+    .cmp-us-cell{background:rgba(192,132,252,.06);color:var(--purple);font-size:13px;font-weight:700}
+    .cmp-us-cell .cmp-yes{color:var(--purple)}
+    .proj-hdr{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+    .proj-card{flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px}
+    .proj-name{font-size:14px;font-weight:700;margin-bottom:6px}
+    .proj-tag{font-size:10.5px;color:var(--muted);line-height:1.55;margin-bottom:8px}
+    .proj-verdict{font-size:11px;padding:6px 10px;border-radius:5px;line-height:1.5}
+    .verdict-yes{background:var(--green-dim);border:1px solid var(--green-b);color:var(--green)}
+    .verdict-no{background:var(--red-dim);border:1px solid var(--red-b);color:var(--red)}
+    .verdict-part{background:var(--yellow-dim);border:1px solid var(--yellow-b);color:var(--yellow)}
+    .verdict-us{background:var(--purple-dim);border:1px solid var(--purple-b);color:var(--purple)}
+    .why-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+    .why-card{background:var(--elevated);border:1px solid var(--border2);border-radius:7px;padding:13px}
+    .why-title{font-size:11px;font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:7px}
+    .why-body{font-size:11.5px;color:var(--muted);line-height:1.6}
+
+    @media(max-width:720px){
+      .ctrl-grid,.proto-grid,.model-grid,.why-grid{grid-template-columns:1fr}
+      .comp-row{flex-direction:column}
+      .walkthrough-step{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Infinity-Sentinel — Tools &amp; Architecture</h1>
+  <p class="subtitle">What every layer needs · How agents communicate · RAG &amp; token strategy · Full stack map</p>
+
+  <div class="tabs">
+    <span class="tab active" onclick="show('sysmap',this)">① System Map</span>
+    <span class="tab"        onclick="show('ctrl',this)">② Controller Tools</span>
+    <span class="tab"        onclick="show('workers',this)">③ Worker Tools</span>
+    <span class="tab"        onclick="show('proto',this)">④ Agent Protocol</span>
+    <span class="tab"        onclick="show('rag',this)">⑤ RAG &amp; Tokens</span>
+    <span class="tab"        onclick="show('conf',this)">⑥ Confidence Score</span>
+    <span class="tab"        onclick="show('compare',this)">⑦ OSS Comparison</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 1 — SYSTEM MAP                                      -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-sysmap" class="panel active">
+    <h2>Full System Architecture — Tools at Every Layer</h2>
+    <p class="note">Hover over any component to understand its role. Arrows show data direction. Right side shows context state.</p>
+
+    <div class="sysmap">
+
+      <!-- LAYER 0: ALERT INGEST -->
+      <div class="layer l-ingest">
+        <div class="layer-label">① Alert Ingest</div>
+        <div class="comp-row" style="margin-top:6px">
+          <div class="comp c-yellow">
+            <div class="comp-name">📟 PagerDuty</div>
+            <div class="comp-desc">Incident webhook → primary alert source. Carries incident_key, service, severity, DAG / pod details.</div>
+            <span class="comp-tool">webhook POST</span><span class="comp-tool">JSON payload</span>
+          </div>
+          <div class="comp c-yellow">
+            <div class="comp-name">📊 Prometheus / Alertmanager</div>
+            <div class="comp-desc">Metric-based alerts. OOMKill, memory threshold, consumer lag. Structured labels: cluster, namespace, job.</div>
+            <span class="comp-tool">alertmanager webhook</span>
+          </div>
+          <div class="comp c-yellow">
+            <div class="comp-name">💬 Slack Slash Command</div>
+            <div class="comp-desc">Natural language queries from engineers: <em>"why is bulkFHIR_transform_dag failing?"</em></div>
+            <span class="comp-tool">Slack Events API</span>
+          </div>
+          <div class="comp c-yellow">
+            <div class="comp-name">🔌 REST / Chat API</div>
+            <div class="comp-desc">Direct programmatic queries or CI/CD hooks. Returns structured RCA JSON.</div>
+            <span class="comp-tool">FastAPI</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow">
+        <div class="flow-arrow-body">
+          <div class="fa-line"></div>
+          <div class="fa-head">↓</div>
+          <div class="fa-label">normalised alert payload → entity extraction</div>
+        </div>
+      </div>
+
+      <!-- LAYER 1: CONTROLLER -->
+      <div class="layer l-ctrl">
+        <div class="layer-label">② Controller Hub (LangGraph state machine)</div>
+        <div class="comp-row" style="margin-top:6px">
+          <div class="comp c-blue">
+            <div class="comp-name">🧠 Entity Extractor</div>
+            <div class="comp-desc">LLM call to pull entity_type, entity_name, cluster, env from raw alert text. ~200 tokens. Small model.</div>
+            <span class="comp-tool">GPT-4o-mini</span><span class="comp-tool">tiktoken</span><span class="comp-tool">Pydantic</span>
+          </div>
+          <div class="comp c-blue">
+            <div class="comp-name">🔀 Rule Router</div>
+            <div class="comp-desc">Deterministic — NO LLM. YAML rules: entity_type → worker path. Also reads inventory to confirm runtime platform.</div>
+            <span class="comp-tool">Python rules dict</span><span class="comp-tool">0 tokens</span>
+          </div>
+          <div class="comp c-blue">
+            <div class="comp-name">📦 Context Loader</div>
+            <div class="comp-desc">Staged loading: Stage 1 = inventory + graph. Stage 2 = + observability. Stage 3 = + code/config. Budget-gated.</div>
+            <span class="comp-tool">Redis (state)</span><span class="comp-tool">PostgreSQL</span><span class="comp-tool">Neo4j</span>
+          </div>
+          <div class="comp c-blue">
+            <div class="comp-name">🪙 Token Budget Manager</div>
+            <div class="comp-desc">Tracks cumulative tokens per investigation. Blocks Stage 3 load if budget exceeded. Logs per-worker spend.</div>
+            <span class="comp-tool">tiktoken</span><span class="comp-tool">Redis counter</span>
+          </div>
+          <div class="comp c-purple">
+            <div class="comp-name">📚 RAG Retriever</div>
+            <div class="comp-desc">Semantic search over runbooks, past RCAs, architecture docs. Injects top-3 chunks into worker context. Saves 2–4K tokens vs full-doc load.</div>
+            <span class="comp-tool">pgvector</span><span class="comp-tool">text-embedding-3-small</span><span class="comp-tool">LangChain</span>
+          </div>
+          <div class="comp c-blue">
+            <div class="comp-name">🔁 Orchestrator</div>
+            <div class="comp-desc">LangGraph graph: routes between workers based on confidence score, accumulates state, decides when to conclude vs escalate.</div>
+            <span class="comp-tool">LangGraph</span><span class="comp-tool">conditional edges</span>
+          </div>
+          <div class="comp c-blue">
+            <div class="comp-name">📝 RCA Synthesiser</div>
+            <div class="comp-desc">Final LLM call with accumulated findings from all workers. Generates structured RCA: root cause, evidence chain, confidence, options.</div>
+            <span class="comp-tool">GPT-4o / Claude 3.5</span><span class="comp-tool">~2K tokens</span>
+          </div>
+          <div class="comp c-red">
+            <div class="comp-name">🔐 Approval Gate</div>
+            <div class="comp-desc">Human-in-the-loop before any write/exec action. Sends RCA + proposed executor plan to on-call via Slack/PagerDuty. Blocks until approved.</div>
+            <span class="comp-tool">Slack webhook</span><span class="comp-tool">LangGraph interrupt</span>
+          </div>
+        </div>
+
+        <!-- Context stages strip inside controller -->
+        <div class="stages-strip" style="margin-top:14px">
+          <div class="stage-block" style="background:#0a1a0a">
+            <div class="sb-title" style="color:#4ade80">Stage 1</div>
+            <div class="sb-tokens">~500 tokens</div>
+            <div style="font-size:10px;color:#555;margin-top:3px">Alert + Inventory + Graph neighborhood</div>
+            <div class="sb-model" style="color:#4ade80">→ GPT-4o-mini</div>
+          </div>
+          <div class="stage-block" style="background:#1a1200">
+            <div class="sb-title" style="color:#f59e0b">Stage 2</div>
+            <div class="sb-tokens">~2,000 tokens</div>
+            <div style="font-size:10px;color:#555;margin-top:3px">+ Loki logs + Prometheus metrics + RAG chunks</div>
+            <div class="sb-model" style="color:#f59e0b">→ GPT-4o</div>
+          </div>
+          <div class="stage-block" style="background:#140a14">
+            <div class="sb-title" style="color:#c084fc">Stage 3</div>
+            <div class="sb-tokens">~4,500 tokens</div>
+            <div style="font-size:10px;color:#555;margin-top:3px">+ Code + Config + Full graph subgraph</div>
+            <div class="sb-model" style="color:#c084fc">→ GPT-4o / Claude 3.5</div>
+          </div>
+          <div class="stage-block" style="background:#0a0f1a">
+            <div class="sb-title" style="color:#5b8ff9">Budget Cap</div>
+            <div class="sb-tokens">8,000 tokens</div>
+            <div style="font-size:10px;color:#555;margin-top:3px">Per investigation total. Stops escalation if exceeded.</div>
+            <div class="sb-model" style="color:#5b8ff9">tracked in Redis</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow">
+        <div class="flow-arrow-body">
+          <div class="fa-line"></div>
+          <div class="fa-head">↓</div>
+          <div class="fa-label">task JSON dispatch (entity + staged context + token budget)</div>
+          <div class="fa-label2">← structured result JSON returns upward (findings, confidence, ruled_out)</div>
+        </div>
+      </div>
+
+      <!-- LAYER 2: WORKERS -->
+      <div class="layer l-worker">
+        <div class="layer-label">③ Workers (specialised LLM agents)</div>
+        <div class="comp-row" style="margin-top:6px">
+          <div class="comp c-green">
+            <div class="comp-name">⚙ K8s Worker</div>
+            <div class="comp-desc">Pod health, restarts, resource usage, HPA, recent deploys, node pressure.</div>
+            <span class="comp-tool">kubernetes Python</span><span class="comp-tool">Prometheus</span><span class="comp-tool">Loki</span>
+          </div>
+          <div class="comp c-green">
+            <div class="comp-name">🌀 Airflow Worker</div>
+            <div class="comp-desc">DAG run history, failed task details, retry patterns, duration anomalies.</div>
+            <span class="comp-tool">Airflow REST API</span><span class="comp-tool">Loki task logs</span>
+          </div>
+          <div class="comp c-green">
+            <div class="comp-name">📨 Kafka Worker</div>
+            <div class="comp-desc">Consumer group lag, topic message counts, producer activity, broker health.</div>
+            <span class="comp-tool">confluent-kafka</span><span class="comp-tool">MSK API</span>
+          </div>
+          <div class="comp c-green">
+            <div class="comp-name">🍃 Mongo Worker</div>
+            <div class="comp-desc">Collection backlog, slow queries, replication lag, connection pool saturation.</div>
+            <span class="comp-tool">PyMongo (read-only)</span><span class="comp-tool">Atlas API</span>
+          </div>
+          <div class="comp c-green">
+            <div class="comp-name">🔬 App RCA Worker</div>
+            <div class="comp-desc">ConfigMap values, code logic (batch size, memory patterns), recent code changes.</div>
+            <span class="comp-tool">GitHub API</span><span class="comp-tool">K8s ConfigMap</span><span class="comp-tool">Git diff</span>
+          </div>
+          <div class="comp c-green">
+            <div class="comp-name">🌐 Infra Worker</div>
+            <div class="comp-desc">DNS probe, TCP handshake test, VPC egress, security group rules, external API status.</div>
+            <span class="comp-tool">dnspython</span><span class="comp-tool">socket</span><span class="comp-tool">boto3</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-arrow">
+        <div class="flow-arrow-body">
+          <div class="fa-line"></div>
+          <div class="fa-head">↓</div>
+          <div class="fa-label">adapter API calls (read-only by default)</div>
+        </div>
+      </div>
+
+      <!-- LAYER 3: ADAPTERS -->
+      <div class="layer l-adapter">
+        <div class="layer-label">④ Tool Adapters (thin wrappers, no LLM)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">
+          <span class="pill orange">kubectl / K8s Python client</span>
+          <span class="pill orange">Prometheus HTTP API</span>
+          <span class="pill orange">Loki HTTP API</span>
+          <span class="pill orange">Grafana API</span>
+          <span class="pill orange">Airflow REST API</span>
+          <span class="pill orange">Kafka AdminClient (confluent-kafka)</span>
+          <span class="pill orange">MSK Describe Cluster (boto3)</span>
+          <span class="pill orange">PyMongo read-only</span>
+          <span class="pill orange">MongoDB Atlas API</span>
+          <span class="pill orange">GitHub REST / GraphQL API</span>
+          <span class="pill orange">AWS API (boto3) — EC2, VPC, SGs</span>
+          <span class="pill orange">dnspython — DNS probe</span>
+          <span class="pill orange">socket — TCP handshake test</span>
+          <span class="pill orange">httpx — external URL probe</span>
+          <span class="pill orange">HashiCorp Vault SDK — creds</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px">
+          Each adapter: fetches data → returns <strong style="color:var(--text)">structured Python dict</strong> → never raw HTML/text passed to LLM.
+          Credentials resolved from Vault at call time, never in LLM context.
+        </div>
+      </div>
+
+      <div class="flow-arrow">
+        <div class="flow-arrow-body">
+          <div class="fa-line"></div>
+          <div class="fa-head">↓</div>
+          <div class="fa-label">reads live data from the target infrastructure</div>
+        </div>
+      </div>
+
+      <!-- LAYER 4: LIVE SYSTEMS -->
+      <div class="layer l-infra">
+        <div class="layer-label">⑤ Live Infrastructure (read targets)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">
+          <span class="pill teal">EKS / AKS clusters</span>
+          <span class="pill teal">Apache Airflow (prod + staging)</span>
+          <span class="pill teal">Amazon MSK (Kafka)</span>
+          <span class="pill teal">MongoDB Atlas</span>
+          <span class="pill teal">Amazon RDS</span>
+          <span class="pill teal">Prometheus TSDB</span>
+          <span class="pill teal">Loki log store</span>
+          <span class="pill teal">Grafana (dashboards / annotations)</span>
+          <span class="pill teal">PagerDuty (incident updates)</span>
+          <span class="pill teal">GitHub (code + configs)</span>
+          <span class="pill teal">AWS VPC / EC2 / Security Groups</span>
+          <span class="pill teal">External 3rd-party APIs</span>
+        </div>
+      </div>
+
+      <!-- SHARED INFRA SIDEBAR (below) -->
+      <div style="margin-top:16px">
+        <h3>Shared System Infrastructure (always running alongside controller)</h3>
+        <div class="comp-row">
+          <div class="comp c-teal">
+            <div class="comp-name">🗄 PostgreSQL — Inventory DB</div>
+            <div class="comp-desc">Stores service/DAG/topic/collection records. Queried by Rule Router and Context Loader. Thin YAML-backed or full DB.</div>
+            <span class="comp-tool">SQLAlchemy</span><span class="comp-tool">psycopg2</span>
+          </div>
+          <div class="comp c-teal">
+            <div class="comp-name">🕸 Neo4j / pgvector — Graph DB</div>
+            <div class="comp-desc">Dataflow dependency graph. "Who writes to hl7message?" → primary_owner, upstream chain in 1 query. Zero LLM tokens.</div>
+            <span class="comp-tool">py2neo</span><span class="comp-tool">pgvector</span>
+          </div>
+          <div class="comp c-orange">
+            <div class="comp-name">⚡ Redis — State Store</div>
+            <div class="comp-desc">Per-investigation state: accumulated findings, token count, current stage, worker call history. TTL: 24h per investigation.</div>
+            <span class="comp-tool">redis-py</span><span class="comp-tool">LangGraph checkpointer</span>
+          </div>
+          <div class="comp c-purple">
+            <div class="comp-name">🔍 pgvector / ChromaDB — RAG Store</div>
+            <div class="comp-desc">Embeddings of runbooks, past RCAs, architecture docs. Semantic search retrieves relevant 300-token chunks to inject into worker context.</div>
+            <span class="comp-tool">pgvector</span><span class="comp-tool">text-embedding-3-small</span><span class="comp-tool">LangChain</span>
+          </div>
+          <div class="comp c-teal">
+            <div class="comp-name">🔐 HashiCorp Vault</div>
+            <div class="comp-desc">All credentials stored here. Adapters fetch at call-time using agent service token. Credentials NEVER passed to LLM or stored in state.</div>
+            <span class="comp-tool">hvac (Python)</span><span class="comp-tool">AppRole auth</span>
+          </div>
+          <div class="comp c-blue">
+            <div class="comp-name">📦 S3 — Evidence Archive</div>
+            <div class="comp-desc">Full investigation logs, raw tool outputs, worker results saved for audit + future RAG training. Not in LLM context.</div>
+            <span class="comp-tool">boto3</span><span class="comp-tool">json + gzip</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sysmap -->
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 2 — CONTROLLER TOOLS                                -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-ctrl" class="panel">
+    <h2>Controller — Every Sub-Component &amp; Its Tools</h2>
+    <p class="note">The controller is the only component that touches the LLM directly. All routing and data fetching is deterministic.</p>
+
+    <div class="ctrl-grid">
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-hdr"><span class="pill blue">Step 1</span> Entity Extractor</div>
+        <div class="ctrl-card-body">
+          <div class="tool-row">
+            <div class="tool-name">LLM API</div>
+            <div class="tool-why">One call to extract entity_type, entity_name, cluster, env from raw alert/message text. ~200 tokens.</div>
+            <span class="tool-badge tb-llm">GPT-4o-mini</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">tiktoken</div>
+            <div class="tool-why">Count tokens before and after the call to track budget spend for this step.</div>
+            <span class="tool-badge tb-py">Python lib</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Pydantic model</div>
+            <div class="tool-why">Structured output schema: <code>EntityExtraction(entity_type, entity_name, cluster, env, alert_class)</code>. Forces JSON response.</div>
+            <span class="tool-badge tb-py">Pydantic v2</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Prompt template</div>
+            <div class="tool-why">Jinja2 template with few-shot examples for each alert type (Prometheus, PagerDuty, Slack). Keeps extraction consistent.</div>
+            <span class="tool-badge tb-py">Jinja2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-hdr"><span class="pill blue">Step 2</span> Rule Router — 0 LLM tokens</div>
+        <div class="ctrl-card-body">
+          <div class="tool-row">
+            <div class="tool-name">YAML rules file</div>
+            <div class="tool-why">Mapping: <code>entity_type → [primary_worker, fallback_workers]</code>. e.g. dag → airflow_worker. Editable without code change.</div>
+            <span class="tool-badge tb-py">PyYAML</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Inventory DB lookup</div>
+            <div class="tool-why">Confirms runtime platform for entity (some services may be on AKS not EKS). Routes to correct cluster-aware worker.</div>
+            <span class="tool-badge tb-db">PostgreSQL</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Dataflow Graph query</div>
+            <div class="tool-why">For collection-type entities: resolve primary_owner service from graph. Determines which worker to start with.</div>
+            <span class="tool-badge tb-db">Neo4j / pgvector</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-hdr"><span class="pill blue">Step 3</span> Context Loader (staged)</div>
+        <div class="ctrl-card-body">
+          <div class="tool-row">
+            <div class="tool-name">Redis</div>
+            <div class="tool-why">Holds live investigation state: current_stage, accumulated_findings, token_count, worker_results. Persists across worker calls.</div>
+            <span class="tool-badge tb-cache">redis-py</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">PostgreSQL (Inventory)</div>
+            <div class="tool-why">Stage 1: fetch full inventory record for entity — cluster, credentials_ref, loki/prometheus labels, kafka topics, repo.</div>
+            <span class="tool-badge tb-db">SQLAlchemy</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Neo4j / pgvector</div>
+            <div class="tool-why">Stage 1: fetch graph neighborhood (upstream + downstream nodes). Returns JSON subgraph, not raw Cypher. ~200 tokens in context.</div>
+            <span class="tool-badge tb-db">py2neo / pgvector</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">RAG Retriever</div>
+            <div class="tool-why">Stage 2+: semantic search returns top-3 relevant runbook chunks. 300 tokens instead of 3,000 for full doc.</div>
+            <span class="tool-badge tb-rag">pgvector + LangChain</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-hdr"><span class="pill blue">Step 4</span> Token Budget Manager</div>
+        <div class="ctrl-card-body">
+          <div class="tool-row">
+            <div class="tool-name">tiktoken</div>
+            <div class="tool-why">Count tokens in every context object before passing to worker. Track actual spend vs budget.</div>
+            <span class="tool-badge tb-py">tiktoken</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Redis counter</div>
+            <div class="tool-why">Cumulative token counter per investigation_id. Checked before each stage load. Blocks Stage 3 if total &gt; 6,000.</div>
+            <span class="tool-badge tb-cache">INCR command</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Budget config YAML</div>
+            <div class="tool-why">Per-stage budgets, total cap, per-worker max tokens. Configurable without code changes. Tune cost vs depth.</div>
+            <span class="tool-badge tb-py">PyYAML</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-hdr"><span class="pill purple">Step 5</span> Orchestrator (LangGraph)</div>
+        <div class="ctrl-card-body">
+          <div class="tool-row">
+            <div class="tool-name">LangGraph</div>
+            <div class="tool-why">State machine graph. Nodes = workers + controller steps. Conditional edges = confidence threshold checks. Built-in checkpointing + human-in-the-loop.</div>
+            <span class="tool-badge tb-py">langgraph</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">LangGraph checkpointer</div>
+            <div class="tool-why">Persists investigation state to Redis/PostgreSQL after each node. Allows pause-resume for approval gate. Audit trail of every step.</div>
+            <span class="tool-badge tb-cache">Redis checkpointer</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Confidence evaluator</div>
+            <div class="tool-why">Custom Python function: if worker confidence &lt; 0.85 AND stage &lt; 3 AND budget remaining → escalate to next stage. Pure logic, no LLM.</div>
+            <span class="tool-badge tb-py">Python</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card">
+        <div class="ctrl-card-hdr"><span class="pill blue">Step 6</span> RCA Synthesiser</div>
+        <div class="ctrl-card-body">
+          <div class="tool-row">
+            <div class="tool-name">LLM API (large model)</div>
+            <div class="tool-why">Takes accumulated findings from all workers + graph context. Generates RCA: root_cause, evidence_chain, confidence, remediation_options.</div>
+            <span class="tool-badge tb-llm">GPT-4o / Claude 3.5</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">Prompt template</div>
+            <div class="tool-why">Structured prompt: presents findings as bullet list, asks for evidence chain reasoning. Forces structured JSON output with Pydantic.</div>
+            <span class="tool-badge tb-py">Jinja2 + Pydantic</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-name">RAG — past incident patterns</div>
+            <div class="tool-why">Optionally injects similar past RCAs: "3 months ago same service had same OOM — fix was batch size". Saves investigation time.</div>
+            <span class="tool-badge tb-rag">pgvector semantic search</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card" style="grid-column:1/-1">
+        <div class="ctrl-card-hdr"><span class="pill red">Step 7</span> Approval Gate + Executor</div>
+        <div class="ctrl-card-body">
+          <div class="comp-row" style="margin-top:0">
+            <div style="flex:1">
+              <div class="tool-row">
+                <div class="tool-name">LangGraph <code>interrupt()</code></div>
+                <div class="tool-why">Pauses graph execution at the approval node. State is persisted. Graph resumes only when approval webhook fires. Never auto-executes in prod.</div>
+                <span class="tool-badge tb-py">LangGraph</span>
+              </div>
+              <div class="tool-row">
+                <div class="tool-name">Slack Block Kit</div>
+                <div class="tool-why">Approval message shows: RCA summary, confidence, proposed executor plan, affected env. Buttons: Approve / Reject / Ask More.</div>
+                <span class="tool-badge tb-py">Slack SDK</span>
+              </div>
+            </div>
+            <div style="flex:1">
+              <div class="tool-row">
+                <div class="tool-name">PagerDuty API</div>
+                <div class="tool-why">Resolves or escalates PagerDuty incident after execution. Adds RCA notes to incident timeline.</div>
+                <span class="tool-badge tb-py">pdpyras</span>
+              </div>
+              <div class="tool-row">
+                <div class="tool-name">Executor adapters</div>
+                <div class="tool-why">After approval only: Airflow DAG trigger, kubectl rollout restart, Kafka consumer group reset. Same adapters as read path but write mode.</div>
+                <span class="tool-badge tb-infra">Write-gated</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 3 — WORKER TOOLS                                    -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-workers" class="panel">
+    <h2>Worker Toolboxes — Per-Worker Detail</h2>
+    <p class="note">Each worker is an LLM agent that receives structured context and calls specific tool adapters to gather evidence. They never talk to each other — all routing through Controller.</p>
+
+    <div class="worker-tabs">
+      <span class="wtab active" onclick="showW('wk8s',this)">⚙ K8s Worker</span>
+      <span class="wtab" onclick="showW('wairflow',this)">🌀 Airflow Worker</span>
+      <span class="wtab" onclick="showW('wkafka',this)">📨 Kafka Worker</span>
+      <span class="wtab" onclick="showW('wmongo',this)">🍃 Mongo Worker</span>
+      <span class="wtab" onclick="showW('wapp',this)">🔬 App RCA Worker</span>
+      <span class="wtab" onclick="showW('winfra',this)">🌐 Infra Worker</span>
+    </div>
+
+    <!-- K8s Worker -->
+    <div id="wk8s" class="wsection active">
+      <div class="worker-detail">
+        <div class="worker-detail-hdr">
+          <span class="pill green">K8s Worker</span>
+          <div>
+            <div class="worker-detail-title">Kubernetes Investigation Agent</div>
+            <div class="worker-detail-sub">Pod health · Resource usage · Scheduling · Deployments · Node pressure</div>
+          </div>
+        </div>
+        <div class="worker-detail-body">
+          <div class="adapter-section">
+            <h3>Core Tool Adapters</h3>
+            <div class="adapter-card">
+              <div class="ac-name">kubernetes Python client <span class="ac-lib">kubernetes==28.x</span></div>
+              <div class="ac-desc">Read pods, deployments, replicasets, events, nodes, configmaps. Kubeconfig fetched from Vault at runtime.</div>
+              <div class="ac-calls">kubectl describe pod → kubectl top pod → kubectl get events → kubectl describe node</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">Prometheus HTTP API <span class="ac-lib">httpx</span></div>
+              <div class="ac-desc">Memory/CPU usage, container restarts, OOMKill counter, HPA metrics. Queries use labels from inventory record.</div>
+              <div class="ac-calls">container_memory_working_set_bytes · kube_pod_container_status_restarts_total · container_oom_events_total</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">Loki HTTP API <span class="ac-lib">httpx</span></div>
+              <div class="ac-desc">Application logs for the service. Labels from inventory: <code>{app="dp-service", namespace="data-pipelines"}</code>. Last 1h, last 500 lines.</div>
+              <div class="ac-calls">/loki/api/v1/query_range · LogQL filter by level=ERROR</div>
+            </div>
+          </div>
+          <div class="adapter-section">
+            <h3>Additional Checks</h3>
+            <div class="adapter-card">
+              <div class="ac-name">Vault SDK <span class="ac-lib">hvac</span></div>
+              <div class="ac-desc">Fetch kubeconfig for target cluster. Transient — used for the K8s API call, then discarded. Never in LLM context.</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">Deployment history check <span class="ac-lib">kubernetes client</span></div>
+              <div class="ac-desc">Lists last 5 replicasets with creation timestamps. Detects if a recent deploy (within 30min) correlates with alert onset.</div>
+            </div>
+          </div>
+          <div class="adapter-section">
+            <h3>Output schema → Controller</h3>
+            <div class="code c" style="font-size:11px">{
+  <span class="k">"findings"</span>:    [<span class="s">"Pod OOMKilled 3× in 30min"</span>, <span class="s">"Memory at 97% of limit"</span>],
+  <span class="k">"ruled_out"</span>:   [<span class="s">"Bad deploy"</span>, <span class="s">"Network issue"</span>],
+  <span class="k">"confidence"</span>:  <span class="n">0.55</span>,
+  <span class="k">"next_check"</span>:  <span class="s">"Loki logs — what happens at each 30s spike?"</span>,
+  <span class="k">"evidence"</span>:    { <span class="k">"restarts"</span>: <span class="n">3</span>, <span class="k">"memory_pct"</span>: <span class="n">97.1</span>, <span class="k">"last_deploy_hours_ago"</span>: <span class="n">48</span> },
+  <span class="k">"tokens_used"</span>: <span class="n">743</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Airflow Worker -->
+    <div id="wairflow" class="wsection">
+      <div class="worker-detail">
+        <div class="worker-detail-hdr">
+          <span class="pill green">Airflow Worker</span>
+          <div>
+            <div class="worker-detail-title">Airflow DAG Investigation Agent</div>
+            <div class="worker-detail-sub">DAG run history · Task failure patterns · Duration anomalies · Task logs</div>
+          </div>
+        </div>
+        <div class="worker-detail-body">
+          <div class="adapter-section">
+            <h3>Core Tool Adapters</h3>
+            <div class="adapter-card">
+              <div class="ac-name">Airflow REST API <span class="ac-lib">httpx + Vault auth</span></div>
+              <div class="ac-desc">Fetch last N DAG runs, run state, duration, failed task ID, task instance details, XCom values. Authenticated via API key from Vault.</div>
+              <div class="ac-calls">GET /api/v1/dags/{dag_id}/dagRuns · GET /api/v1/dags/{dag_id}/tasks/{task_id}/instances</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">Loki — Airflow task stderr <span class="ac-lib">httpx + LogQL</span></div>
+              <div class="ac-desc">Task-level logs filtered by <code>dag_id</code> and <code>task_id</code>. Extracts exact error messages, stack traces, HTTP response codes.</div>
+              <div class="ac-calls">{app="airflow", dag_id="...", task_id="..."} | json | level="ERROR"</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">Duration anomaly check <span class="ac-lib">Python statistics</span></div>
+              <div class="ac-desc">Compares current run duration to rolling 7-day average. Detects timeout patterns: current = N × timeout_seconds × retries → external dependency failure signal.</div>
+            </div>
+          </div>
+          <div class="adapter-section">
+            <h3>Output schema → Controller</h3>
+            <div class="code" style="font-size:11px">{
+  <span class="k">"findings"</span>:    [<span class="s">"enrich_hl7_with_fhir_api failed 3×, duration = 32min (= timeout×retries)"</span>],
+  <span class="k">"ruled_out"</span>:   [<span class="s">"Kafka extract task"</span>, <span class="s">"Airflow worker crash"</span>],
+  <span class="k">"confidence"</span>:  <span class="n">0.62</span>,
+  <span class="k">"next_check"</span>:  <span class="s">"Loki task logs — exact ConnectTimeout error + target host"</span>,
+  <span class="k">"evidence"</span>:    { <span class="k">"failed_task"</span>: <span class="s">"enrich_hl7_with_fhir_api"</span>, <span class="k">"failure_count"</span>: <span class="n">3</span>, <span class="k">"last_success"</span>: <span class="s">"08:00 UTC"</span> },
+  <span class="k">"tokens_used"</span>: <span class="n">812</span>
+}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kafka Worker -->
+    <div id="wkafka" class="wsection">
+      <div class="worker-detail">
+        <div class="worker-detail-hdr">
+          <span class="pill green">Kafka Worker</span>
+          <div>
+            <div class="worker-detail-title">Kafka / MSK Investigation Agent</div>
+            <div class="worker-detail-sub">Consumer lag · Producer activity · Broker health · Topic partition status</div>
+          </div>
+        </div>
+        <div class="worker-detail-body">
+          <div class="adapter-section">
+            <h3>Core Tool Adapters</h3>
+            <div class="adapter-card">
+              <div class="ac-name">confluent-kafka AdminClient <span class="ac-lib">confluent-kafka-python</span></div>
+              <div class="ac-desc">Consumer group lag per partition, committed offsets vs log-end offset. Identifies if consumer is idle (lag=0 + no recent commits) vs falling behind (lag growing).</div>
+              <div class="ac-calls">list_consumer_group_offsets() · describe_topics() · list_consumer_groups()</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">MSK Describe Cluster API <span class="ac-lib">boto3 kafka client</span></div>
+              <div class="ac-desc">Broker count, cluster state, zookeeper status. Rules out broker-level failures before blaming producers/consumers.</div>
+              <div class="ac-calls">describe_cluster_v2() · list_broker_nodes() · get_broker_logs()</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">Prometheus — Kafka metrics <span class="ac-lib">httpx</span></div>
+              <div class="ac-desc">Message production rate, bytes in/out, consumer group lag trend over time. Differentiates "never published" vs "published but not consumed".</div>
+              <div class="ac-calls">kafka_consumer_group_lag · kafka_topic_partitions · kafka_server_broker_topic_metrics</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mongo Worker -->
+    <div id="wmongo" class="wsection">
+      <div class="worker-detail">
+        <div class="worker-detail-hdr">
+          <span class="pill green">Mongo Worker</span>
+          <div>
+            <div class="worker-detail-title">MongoDB Investigation Agent</div>
+            <div class="worker-detail-sub">Collection health · Slow queries · Replication lag · Write backlog</div>
+          </div>
+        </div>
+        <div class="worker-detail-body">
+          <div class="adapter-section">
+            <h3>Core Tool Adapters</h3>
+            <div class="adapter-card">
+              <div class="ac-name">PyMongo — read-only connection <span class="ac-lib">pymongo</span></div>
+              <div class="ac-desc">Count documents in hl7message collection with status filters (pending, failed, completed). Check last document timestamp. Read-only role enforced in Vault credential.</div>
+              <div class="ac-calls">db.hl7message.count_documents({"status": "pending"}) · find_one(sort=[("_id", -1)])</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">currentOp + serverStatus <span class="ac-lib">pymongo admin</span></div>
+              <div class="ac-desc">Active slow queries, index usage, connection pool saturation, replication lag for replica set members.</div>
+              <div class="ac-calls">db.command("currentOp") · db.command("serverStatus") · db.command("replSetGetStatus")</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">MongoDB Atlas API <span class="ac-lib">httpx + Atlas API key</span></div>
+              <div class="ac-desc">Cluster metrics, disk I/O, connections, slow query analyzer (Atlas-specific). Available as alternative to direct pymongo for Atlas-hosted clusters.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- App RCA Worker -->
+    <div id="wapp" class="wsection">
+      <div class="worker-detail">
+        <div class="worker-detail-hdr">
+          <span class="pill green">App RCA Worker</span>
+          <div>
+            <div class="worker-detail-title">Application Root Cause Agent</div>
+            <div class="worker-detail-sub">ConfigMap values · Code logic · Batch sizes · Recent git changes</div>
+          </div>
+        </div>
+        <div class="worker-detail-body">
+          <div class="adapter-section">
+            <h3>Core Tool Adapters</h3>
+            <div class="adapter-card">
+              <div class="ac-name">K8s ConfigMap reader <span class="ac-lib">kubernetes Python client</span></div>
+              <div class="ac-desc">Fetch runtime config: BATCH_SIZE, KAFKA_MAX_POLL_RECORDS, timeout values, feature flags. Exact values at time of incident.</div>
+              <div class="ac-calls">core_v1.read_namespaced_config_map(name, namespace)</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">GitHub REST API <span class="ac-lib">PyGitHub / httpx</span></div>
+              <div class="ac-desc">Fetch source file for identified hot path (e.g. MessageProcessor.java). Check recent commits (last 7 days) on repo for changes to batch/memory logic.</div>
+              <div class="ac-calls">GET /repos/{org}/{repo}/contents/{path} · GET /repos/.../commits?since=...</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">RAG — code semantic search <span class="ac-lib">pgvector (optional)</span></div>
+              <div class="ac-desc">If code corpus is indexed: semantic search for "batch processing" or "memory allocation" patterns near the identified class. Faster than reading full files.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Infra Worker -->
+    <div id="winfra" class="wsection">
+      <div class="worker-detail">
+        <div class="worker-detail-hdr">
+          <span class="pill green">Infra Worker</span>
+          <div>
+            <div class="worker-detail-title">Infrastructure Probe Agent</div>
+            <div class="worker-detail-sub">DNS resolution · TCP connectivity · VPC egress · Security groups · External API status</div>
+          </div>
+        </div>
+        <div class="worker-detail-body">
+          <div class="adapter-section">
+            <h3>Core Tool Adapters</h3>
+            <div class="adapter-card">
+              <div class="ac-name">dnspython <span class="ac-lib">dnspython</span></div>
+              <div class="ac-desc">Resolve hostname to IP from Airflow/pod network namespace. Distinguishes DNS failure from TCP failure. Critical for "3rd party API down" pattern.</div>
+              <div class="ac-calls">dns.resolver.resolve(hostname, 'A') → IP or NXDOMAIN</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">socket — TCP probe <span class="ac-lib">Python stdlib</span></div>
+              <div class="ac-desc">Attempt TCP handshake to resolved IP:port with 10s timeout. ConnectTimeout = far-end not responding. ConnectionRefused = port closed. Success = TCP layer OK.</div>
+              <div class="ac-calls">socket.create_connection((host, port), timeout=10)</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">boto3 — VPC / Security Groups <span class="ac-lib">boto3</span></div>
+              <div class="ac-desc">List outbound security group rules for pod's node. Verify 443 egress is allowed to 0.0.0.0/0 or specific CIDR. Rules out SG misconfiguration.</div>
+              <div class="ac-calls">ec2.describe_security_groups() · ec2.describe_network_acls()</div>
+            </div>
+            <div class="adapter-card">
+              <div class="ac-name">httpx — external status check <span class="ac-lib">httpx</span></div>
+              <div class="ac-desc">Hit partner status page or well-known status URL. Parse for outage indicators. Control check: also probe a known-healthy endpoint (api.github.com) to rule out our egress.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 4 — AGENT PROTOCOL                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-proto" class="panel">
+    <h2>Agent Communication Protocol</h2>
+    <p class="note">Workers never call each other. All outputs go through the Controller. Context accumulates in Redis across worker calls, gated by confidence score.</p>
+
+    <!-- Loop diagram -->
+    <div class="loop-diagram">
+      <h2>The Orchestration Loop</h2>
+      <div class="loop-flow">
+        <div class="lf-node ctrl">
+          <div class="lf-label">Controller</div>
+          <div class="lf-sub">Load staged context<br>+ token budget check<br>+ RAG inject</div>
+        </div>
+        <div class="lf-arrow">
+          <div class="lf-arrow-icon">→</div>
+          <div style="font-size:9px;color:var(--muted2)">task JSON<br>+ context</div>
+        </div>
+        <div class="lf-node worker">
+          <div class="lf-label">Worker N</div>
+          <div class="lf-sub">LLM call<br>+ tool adapter calls<br>→ structured result</div>
+        </div>
+        <div class="lf-arrow">
+          <div class="lf-arrow-icon">→</div>
+          <div style="font-size:9px;color:var(--muted2)">result JSON<br>(findings, conf)</div>
+        </div>
+        <div class="lf-node decision">
+          <div class="lf-label">Confidence Gate</div>
+          <div class="lf-sub">conf ≥ 0.85?<br>budget OK?<br>stage &lt; 3?</div>
+        </div>
+        <div class="lf-arrow">
+          <div class="lf-arrow-icon">→</div>
+          <div style="font-size:9px;color:var(--muted2)">YES → conclude</div>
+        </div>
+        <div class="lf-node rca">
+          <div class="lf-label">RCA Synthesiser</div>
+          <div class="lf-sub">All findings →<br>LLM → structured<br>RCA report</div>
+        </div>
+        <div class="lf-arrow">
+          <div class="lf-arrow-icon">→</div>
+          <div style="font-size:9px;color:var(--muted2)">awaits human</div>
+        </div>
+        <div class="lf-node approve">
+          <div class="lf-label">Approval Gate</div>
+          <div class="lf-sub">Slack / PagerDuty<br>Human approves<br>→ Executor runs</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px 14px;background:#111;border-radius:6px;border:1px solid var(--border2);font-size:11.5px;color:var(--muted)">
+        <strong style="color:var(--yellow)">NO branch (confidence &lt; 0.85):</strong> Controller loads next context stage → appends previous findings to new context → dispatches same or different worker with enriched context. Loop repeats until confidence threshold met or budget exhausted.
+      </div>
+    </div>
+
+    <!-- JSON schemas -->
+    <div class="proto-grid">
+      <div>
+        <h2>Controller → Worker (Task Payload)</h2>
+        <div class="code" style="font-size:11px">{
+  <span class="k">"task_id"</span>:         <span class="s">"inv-2026-04-20-3829"</span>,
+  <span class="k">"investigation_id"</span>: <span class="s">"PD-38291"</span>,
+  <span class="k">"worker"</span>:           <span class="s">"k8s-worker"</span>,
+  <span class="k">"entity"</span>: {
+    <span class="k">"type"</span>:    <span class="s">"service"</span>,
+    <span class="k">"name"</span>:    <span class="s">"dp-service"</span>,
+    <span class="k">"cluster"</span>: <span class="s">"prod-eks-1"</span>,
+    <span class="k">"env"</span>:     <span class="s">"prod"</span>
+  },
+  <span class="k">"context_stage"</span>:   <span class="n">1</span>,
+  <span class="k">"context"</span>: {
+    <span class="k">"alert"</span>:       { <span class="c">/* original alert */</span> },
+    <span class="k">"inventory"</span>:   { <span class="c">/* service inventory record */</span> },
+    <span class="k">"graph"</span>:       { <span class="c">/* upstream/downstream nodes */</span> },
+    <span class="k">"rag_chunks"</span>:  [ <span class="c">/* top-3 runbook chunks */</span> ],
+    <span class="k">"prior_findings"</span>: [ <span class="c">/* from previous workers */</span> ]
+  },
+  <span class="k">"token_budget_remaining"</span>: <span class="n">5420</span>,
+  <span class="k">"focus_hint"</span>: <span class="s">"Check memory pattern at 30s interval"</span>
+}</div>
+      </div>
+      <div>
+        <h2>Worker → Controller (Result Payload)</h2>
+        <div class="code" style="font-size:11px">{
+  <span class="k">"task_id"</span>:       <span class="s">"inv-2026-04-20-3829"</span>,
+  <span class="k">"worker"</span>:        <span class="s">"k8s-worker"</span>,
+  <span class="k">"findings"</span>: [
+    <span class="s">"3 OOMKills in 30min — memory at 97% of limit"</span>,
+    <span class="s">"Restart interval 25-30s matches Kafka poll interval"</span>,
+    <span class="s">"No recent deploy — not regression-caused"</span>
+  ],
+  <span class="k">"ruled_out"</span>:  [<span class="s">"Bad deploy"</span>, <span class="s">"Network issue"</span>],
+  <span class="k">"confidence"</span>: <span class="n">0.55</span>,    <span class="c">// &lt; 0.85 → controller escalates</span>
+  <span class="k">"next_check"</span>: <span class="s">"Loki logs — what causes memory spike every 30s?"</span>,
+  <span class="k">"evidence"</span>: {
+    <span class="k">"restarts"</span>: <span class="n">3</span>, <span class="k">"memory_pct"</span>: <span class="n">97.1</span>,
+    <span class="k">"deploy_hours_ago"</span>: <span class="n">48</span>,
+    <span class="k">"consumer_lag"</span>: <span class="n">0</span>
+  },
+  <span class="k">"tokens_used"</span>:  <span class="n">743</span>,
+  <span class="k">"tools_called"</span>: [<span class="s">"kubectl_describe"</span>, <span class="s">"prometheus_memory"</span>, <span class="s">"loki_logs"</span>]
+}</div>
+      </div>
+    </div>
+
+    <!-- Context accumulation -->
+    <h2 style="margin-bottom:12px">How Context Accumulates Across Worker Calls</h2>
+    <div class="accum-strip">
+      <div class="accum-row" style="background:var(--elevated)">
+        <div class="accum-step" style="color:var(--muted)">—</div>
+        <div class="accum-content" style="font-size:10.5px;font-weight:700;color:var(--muted)">Context contents in Redis state</div>
+        <div class="accum-tokens" style="color:var(--muted);font-weight:700">Tokens</div>
+      </div>
+      <div class="accum-row">
+        <div class="accum-step" style="color:var(--yellow)">S1</div>
+        <div class="accum-content">
+          Alert payload + Inventory record (dp-service) + Dataflow graph neighborhood (3 nodes) + RAG chunk: OOM runbook excerpt
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+520</span><br><span style="color:var(--muted)">total: 520</span></div>
+      </div>
+      <div class="accum-row">
+        <div class="accum-step" style="color:var(--yellow)">W1</div>
+        <div class="accum-content">
+          K8s Worker result appended: findings ["3 OOMKills", "30s restart pattern"], ruled_out, confidence: 0.55 → <strong style="color:var(--yellow)">escalate</strong>
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+180</span><br><span style="color:var(--muted)">total: 700</span></div>
+      </div>
+      <div class="accum-row">
+        <div class="accum-step" style="color:var(--orange)">S2</div>
+        <div class="accum-content">
+          + Loki logs (last 50 relevant lines for dp-service) + Prometheus memory time-series (1h, aggregated) + RAG chunk: batch processing pattern
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+1,400</span><br><span style="color:var(--muted)">total: 2,100</span></div>
+      </div>
+      <div class="accum-row">
+        <div class="accum-step" style="color:var(--orange)">W2</div>
+        <div class="accum-content">
+          Obs Worker result: findings ["BATCH_SIZE=5000 log line", "spike matches poll interval"], confidence: 0.73 → <strong style="color:var(--yellow)">escalate</strong>
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+210</span><br><span style="color:var(--muted)">total: 2,310</span></div>
+      </div>
+      <div class="accum-row">
+        <div class="accum-step" style="color:var(--purple)">S3</div>
+        <div class="accum-content">
+          + ConfigMap values (DP_BATCH_SIZE, KAFKA_MAX_POLL_RECORDS) + Code snippet: MessageProcessor.java lines 82–89 (collect(toList()) pattern)
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+900</span><br><span style="color:var(--muted)">total: 3,210</span></div>
+      </div>
+      <div class="accum-row">
+        <div class="accum-step" style="color:var(--purple)">W3</div>
+        <div class="accum-content">
+          App Worker result: findings ["BATCH_SIZE=5000", "all 5000 materialised before write"], confidence: <strong style="color:var(--green)">0.96 ≥ 0.85 → CONCLUDE</strong>
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+240</span><br><span style="color:var(--muted)">total: 3,450</span></div>
+      </div>
+      <div class="accum-row" style="background:#0a1a0a">
+        <div class="accum-step" style="color:var(--green)">RCA</div>
+        <div class="accum-content" style="color:var(--green)">
+          RCA Synthesiser call with full accumulated state → structured RCA report. Total investigation: 3 workers, 3 stages, ~3,450 tokens used of 8,000 budget.
+        </div>
+        <div class="accum-tokens"><span style="color:var(--green)">+1,200</span><br><span style="color:var(--green)">total: 4,650</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 5 — RAG & TOKENS                                    -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-rag" class="panel">
+    <h2>RAG &amp; Token Management Strategy</h2>
+    <p class="note">Two problems RAG solves: (1) load only relevant knowledge instead of full runbooks (token saving), (2) inject past incident patterns to guide investigation (quality improvement).</p>
+
+    <!-- RAG pipeline -->
+    <h2 style="margin-bottom:6px">RAG Pipeline — Offline (Indexing) + Online (Retrieval)</h2>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:16px;margin-bottom:20px">
+      <h3 style="margin-bottom:12px">Offline: Document Ingestion → Embedding → Vector Store</h3>
+      <div class="rag-pipeline">
+        <div class="rp-node source">
+          <div class="rp-label" style="color:var(--orange)">📄 Sources</div>
+          <div class="rp-sub">Confluence runbooks<br>Past RCA reports<br>Architecture docs<br>Code comments</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="rp-node embed" style="min-width:130px">
+          <div class="rp-label" style="color:var(--purple)">✂ Chunker</div>
+          <div class="rp-sub">Split into 512-token chunks<br>Overlap: 50 tokens<br>Metadata: source, section, date</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="rp-node embed">
+          <div class="rp-label" style="color:var(--purple)">🧮 Embedder</div>
+          <div class="rp-sub">text-embedding-3-small<br>(OpenAI) or<br>sentence-transformers<br>→ 1536-dim vector</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="rp-node store">
+          <div class="rp-label" style="color:var(--teal)">🗄 Vector Store</div>
+          <div class="rp-sub">pgvector extension<br>(same PostgreSQL)<br>or ChromaDB<br>HNSW index</div>
+        </div>
+      </div>
+      <hr class="divider" style="margin:14px 0"/>
+      <h3 style="margin-bottom:12px">Online: Query → Retrieve → Inject into Worker Context</h3>
+      <div class="rag-pipeline">
+        <div class="rp-node query" style="min-width:140px">
+          <div class="rp-label" style="color:var(--accent)">🔍 Query Builder</div>
+          <div class="rp-sub">Controller builds query<br>from entity + alert_class:<br>"k8s oom memory batch"<br>"dag airflow timeout"</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="rp-node embed">
+          <div class="rp-label" style="color:var(--purple)">🧮 Embed Query</div>
+          <div class="rp-sub">Same embedding model<br>→ query vector</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="rp-node store">
+          <div class="rp-label" style="color:var(--teal)">📐 Cosine Search</div>
+          <div class="rp-sub">Top-3 chunks by<br>cosine similarity<br>threshold: 0.75</div>
+        </div>
+        <div class="rp-arrow">→</div>
+        <div class="rp-node inject">
+          <div class="rp-label" style="color:var(--green)">💉 Context Inject</div>
+          <div class="rp-sub">3 chunks × ~100 tokens<br>= ~300 tokens added<br>vs 3,000 for full doc<br><strong style="color:#4ade80">90% token saving</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- What gets indexed -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:16px">
+        <h2 style="margin-bottom:12px">What Goes into the RAG Store</h2>
+        <div class="tool-row">
+          <div class="tool-name">Confluence runbooks</div>
+          <div class="tool-why">Troubleshooting guides per service: "How to debug bulkFHIR-processor OOM", "Airflow DAG failure checklist". Chunked by section heading.</div>
+        </div>
+        <div class="tool-row">
+          <div class="tool-name">Past RCA reports</div>
+          <div class="tool-why">Previous incident resolutions stored as structured text. Semantic match: "same OOM in dp-service 3 months ago → fix was BATCH_SIZE reduction". Highest value.</div>
+        </div>
+        <div class="tool-row">
+          <div class="tool-name">Architecture docs</div>
+          <div class="tool-why">Service descriptions, data flow narratives. Helps worker understand upstream/downstream relationships when graph is ambiguous.</div>
+        </div>
+        <div class="tool-row" style="border-bottom:none">
+          <div class="tool-name">Code comments / README</div>
+          <div class="tool-why">Service-level README explaining config options: "BATCH_SIZE: number of messages per Kafka poll. Memory impact: ~160KB per message."</div>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:16px">
+        <h2 style="margin-bottom:12px">When RAG is Triggered</h2>
+        <div class="tool-row">
+          <div class="tool-name">Stage 1 always</div>
+          <div class="tool-why">Query: <code>"{service_name} {alert_class}"</code>. Injects general troubleshooting context upfront, before first worker call.</div>
+        </div>
+        <div class="tool-row">
+          <div class="tool-name">After each worker result</div>
+          <div class="tool-why">Query refined with worker findings: <code>"oom batch size kafka poll memory"</code>. Retrieves more targeted runbook sections for next stage.</div>
+        </div>
+        <div class="tool-row">
+          <div class="tool-name">RCA synthesis</div>
+          <div class="tool-why">Query past RCA reports semantically: finds similar incidents. Injects "similar past resolution" as additional evidence in the final RCA.</div>
+        </div>
+        <div class="tool-row" style="border-bottom:none">
+          <div class="tool-name">NOT triggered when</div>
+          <div class="tool-why">Budget &lt; 500 tokens remaining, or similarity score &lt; 0.75 (no relevant chunks). Fails gracefully without impacting investigation.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token budget table -->
+    <h2 style="margin-bottom:12px">Token Budget — Per Stage Breakdown</h2>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden;margin-bottom:20px">
+      <table>
+        <thead>
+          <tr>
+            <th>Stage / Step</th>
+            <th>Content loaded</th>
+            <th>Typical tokens</th>
+            <th>Model tier</th>
+            <th>Trigger condition</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pill blue">Entity Extract</span></td>
+            <td>Raw alert text only</td>
+            <td class="td-mono">~150–200</td>
+            <td><span class="pill purple">GPT-4o-mini</span></td>
+            <td>Every investigation, once</td>
+          </tr>
+          <tr>
+            <td><span class="pill green">Stage 1</span></td>
+            <td>Alert + Inventory record + Graph (3 nodes) + RAG top-3 chunks</td>
+            <td class="td-mono">~400–600</td>
+            <td><span class="pill green">GPT-4o-mini</span></td>
+            <td>Always — first worker call</td>
+          </tr>
+          <tr>
+            <td><span class="pill yellow">Stage 2</span></td>
+            <td>+ Loki logs (50 lines) + Prometheus data (aggregated) + updated RAG chunks</td>
+            <td class="td-mono">+1,200–1,800</td>
+            <td><span class="pill yellow">GPT-4o</span></td>
+            <td>confidence &lt; 0.85 after Stage 1</td>
+          </tr>
+          <tr>
+            <td><span class="pill purple">Stage 3</span></td>
+            <td>+ ConfigMap values + code snippet (20–30 lines) + full graph subgraph</td>
+            <td class="td-mono">+800–1,200</td>
+            <td><span class="pill purple">GPT-4o / Claude 3.5</span></td>
+            <td>confidence &lt; 0.85 after Stage 2</td>
+          </tr>
+          <tr>
+            <td><span class="pill blue">RCA Synthesis</span></td>
+            <td>All accumulated findings + evidence + RAG past incidents</td>
+            <td class="td-mono">~1,000–1,500</td>
+            <td><span class="pill purple">GPT-4o / Claude 3.5</span></td>
+            <td>confidence ≥ 0.85 OR budget near cap</td>
+          </tr>
+          <tr style="background:#0a1a0a">
+            <td><strong style="color:var(--green)">Total typical</strong></td>
+            <td style="color:var(--muted)">Stage 1+2 path (most common)</td>
+            <td class="td-mono" style="color:var(--green)"><strong>~3,000–4,000</strong></td>
+            <td>—</td>
+            <td style="color:var(--muted)">Well within 8K cap</td>
+          </tr>
+          <tr style="background:#140a0a">
+            <td><strong style="color:var(--red)">Budget cap</strong></td>
+            <td style="color:var(--muted)">All stages (worst case)</td>
+            <td class="td-mono" style="color:var(--red)"><strong>8,000 max</strong></td>
+            <td>—</td>
+            <td style="color:var(--muted)">Stops escalation, forces RCA with available data</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Model tiers -->
+    <h2 style="margin-bottom:12px">Model Selection Strategy — Cost vs Depth</h2>
+    <div class="model-grid">
+      <div class="model-card" style="border-color:var(--green-b)">
+        <div class="mc-tier" style="color:var(--green)">Tier 1 — Fast &amp; Cheap</div>
+        <div class="mc-model">GPT-4o-mini</div>
+        <div class="mc-when">Entity extraction, simple Stage 1 checks, Kafka/Airflow routing decisions where context is small and task is structured extraction.</div>
+        <div class="mc-tokens" style="color:var(--green)">~200–600 tokens · $0.0002/call</div>
+      </div>
+      <div class="model-card" style="border-color:var(--yellow-b)">
+        <div class="mc-tier" style="color:var(--yellow)">Tier 2 — Balanced</div>
+        <div class="mc-model">GPT-4o</div>
+        <div class="mc-when">Stage 2 investigations with Loki + Prometheus data. Most worker calls. Good reasoning over multi-source evidence. Default for production.</div>
+        <div class="mc-tokens" style="color:var(--yellow)">~1,500–3,000 tokens · $0.003/call</div>
+      </div>
+      <div class="model-card" style="border-color:var(--purple-b)">
+        <div class="mc-tier" style="color:var(--purple)">Tier 3 — Deep Reasoning</div>
+        <div class="mc-model">GPT-4o / Claude 3.5 Sonnet</div>
+        <div class="mc-when">Stage 3 code + config analysis, final RCA synthesis over all accumulated findings. Used sparingly — only when confidence still low at Stage 2.</div>
+        <div class="mc-tokens" style="color:var(--purple)">~3,000–5,000 tokens · $0.01/call</div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;background:var(--elevated);border:1px solid var(--border2);border-radius:8px;padding:16px">
+      <h2 style="margin-bottom:12px">Other Token Control Mechanisms</h2>
+      <div class="comp-row">
+        <div class="comp c-teal">
+          <div class="comp-name">📉 Observability data summarisation</div>
+          <div class="comp-desc">Prometheus time-series is not dumped raw. Adapter computes: min, max, p95, spike timestamps. 500 raw data points → 4 numbers. Saves ~2,000 tokens per metric.</div>
+        </div>
+        <div class="comp c-teal">
+          <div class="comp-name">✂ Log pre-filtering</div>
+          <div class="comp-desc">Loki adapter filters to ERROR/WARN lines only, max 50 lines, most recent first. Strips ANSI codes, stack trace deduplication. 5,000 log lines → 50 relevant lines.</div>
+        </div>
+        <div class="comp c-teal">
+          <div class="comp-name">🗜 Graph serialisation</div>
+          <div class="comp-desc">Dataflow graph sent as compact adjacency JSON: <code>{"bulkFHIR-processor": {"writes": ["hl7message"], "reads": ["bulkFHIR-events"]}}</code>. Not Cypher or full node objects.</div>
+        </div>
+        <div class="comp c-teal">
+          <div class="comp-name">💾 Result caching</div>
+          <div class="comp-desc">K8s pod health result cached in Redis for 5 min per pod. If two workers need the same data, second call hits cache. No duplicate API calls or LLM reprocessing.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-rag -->
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 6 — CONFIDENCE SCORE                                -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-conf" class="panel">
+    <h2>Confidence Score — What It Is, How It's Calculated, How Decisions Are Made</h2>
+    <p class="note">The confidence score is the single number that drives every escalation decision in Infinity-Sentinel. It is not a guess — it is a reasoned, auditable output produced by each worker and verified by programmatic rules.</p>
+
+    <!-- Score band -->
+    <h3 style="margin-bottom:8px">Score Levels at a Glance</h3>
+    <div class="conf-band">
+      <div class="cb-seg" style="background:#2d0d0d;border-right:1px solid var(--border2)">
+        <div class="cb-val" style="color:#f87171">0.0 – 0.45</div>
+        <div style="color:#f87171">Very Low</div>
+        <div style="font-size:9px;color:#888">Single source, vague</div>
+      </div>
+      <div class="cb-seg" style="background:#2d1a00;border-right:1px solid var(--border2)">
+        <div class="cb-val" style="color:#fb923c">0.45 – 0.65</div>
+        <div style="color:#fb923c">Low</div>
+        <div style="font-size:9px;color:#888">Symptom known, cause unclear</div>
+      </div>
+      <div class="cb-seg" style="background:#221900;border-right:1px solid var(--border2)">
+        <div class="cb-val" style="color:#f59e0b">0.65 – 0.84</div>
+        <div style="color:#f59e0b">Medium</div>
+        <div style="font-size:9px;color:#888">Strong signal, needs confirmation</div>
+      </div>
+      <div class="cb-seg" style="background:#0a2016">
+        <div class="cb-val" style="color:#4ade80">0.85 – 1.0</div>
+        <div style="color:#4ade80">Conclusive ✓</div>
+        <div style="font-size:9px;color:#888">Multi-source, all alternatives ruled out</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">
+
+      <!-- Left: factors -->
+      <div>
+        <h2 style="margin-bottom:12px">What Moves the Score</h2>
+        <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px">
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--green)">+0.20</div>
+            <div><div>Error confirmed in logs AND matching metric spike</div><div class="factor-eg">OOMKill in Loki + Prometheus memory spike at same timestamp</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--green)">+0.20</div>
+            <div><div>Config/code directly confirms the hypothesis</div><div class="factor-eg">ConfigMap: DP_BATCH_SIZE=5000, Code: collect(toList()) materialises all 5000</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--green)">+0.25</div>
+            <div><div>External authoritative confirmation</div><div class="factor-eg">Partner status page: 🔴 Major Outage confirmed — third-party API down</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--green)">+0.15</div>
+            <div><div>Multiple alternative causes ruled out explicitly</div><div class="factor-eg">Bad deploy ✗, network issue ✗, broker failure ✗, pod crash ✗</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--red)">−0.20</div>
+            <div><div>Only one data source available</div><div class="factor-eg">Only Kubernetes data, no logs or metrics to corroborate</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--red)">−0.20</div>
+            <div><div>Finding is vague or general</div><div class="factor-eg">"Memory issue" vs "BATCH_SIZE=5000 causes ~800MB heap allocation"</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--red)">−0.15</div>
+            <div><div>Unexplored alternative explanations exist</div><div class="factor-eg">"Could also be a GC configuration issue or memory leak elsewhere"</div></div>
+          </div>
+          <div class="factor-row">
+            <div class="factor-delta" style="color:var(--red)">−0.20</div>
+            <div><div>Contradicting signals across sources</div><div class="factor-eg">Logs say OOM but memory metric shows only 50% usage</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: decision tree -->
+      <div>
+        <h2 style="margin-bottom:12px">Decision Gate — How Controller Uses the Score</h2>
+        <div class="conf-decision">
+          <div class="cd-row" style="background:var(--red-dim);border-color:var(--red-b)">
+            <div class="cd-score" style="color:var(--red)">0.0 – 0.45</div>
+            <div>
+              <div class="cd-label" style="color:var(--red)">Very Low Confidence</div>
+              <div class="cd-desc">Too uncertain. Not enough data seen yet. Controller loads Stage 1 context and dispatches worker.</div>
+            </div>
+            <div class="cd-action" style="color:var(--red)">→ Escalate Stage 1</div>
+          </div>
+          <div class="cd-row" style="background:#1a0d00;border-color:var(--orange-b)">
+            <div class="cd-score" style="color:var(--orange)">0.45 – 0.64</div>
+            <div>
+              <div class="cd-label" style="color:var(--orange)">Low Confidence</div>
+              <div class="cd-desc">Symptom identified (e.g. pod OOMKilling) but root cause still unclear. Stage 2 context (logs + metrics) loaded.</div>
+            </div>
+            <div class="cd-action" style="color:var(--orange)">→ Escalate Stage 2</div>
+          </div>
+          <div class="cd-row" style="background:var(--yellow-dim);border-color:var(--yellow-b)">
+            <div class="cd-score" style="color:var(--yellow)">0.65 – 0.84</div>
+            <div>
+              <div class="cd-label" style="color:var(--yellow)">Medium Confidence</div>
+              <div class="cd-desc">Strong signal found (e.g. BATCH_SIZE in logs) but needs config/code confirmation. Stage 3 context loaded if budget allows.</div>
+            </div>
+            <div class="cd-action" style="color:var(--yellow)">→ Escalate Stage 3</div>
+          </div>
+          <div class="cd-row" style="background:var(--green-dim);border-color:var(--green-b)">
+            <div class="cd-score" style="color:var(--green)">≥ 0.85</div>
+            <div>
+              <div class="cd-label" style="color:var(--green)">Conclusive ✓</div>
+              <div class="cd-desc">Root cause identified, evidence from 2+ sources, alternatives ruled out. Controller stops escalating and calls RCA Synthesiser.</div>
+            </div>
+            <div class="cd-action" style="color:var(--green)">→ Conclude → RCA</div>
+          </div>
+          <div class="cd-row" style="background:#0a0a14;border-color:var(--accent-b)">
+            <div class="cd-score" style="color:var(--accent);font-size:13px">Budget cap hit</div>
+            <div>
+              <div class="cd-label" style="color:var(--accent)">Token budget exhausted</div>
+              <div class="cd-desc">Regardless of confidence, investigation stops. RCA generated with available findings, flagged <code>low_confidence: true</code>.</div>
+            </div>
+            <div class="cd-action" style="color:var(--accent)">→ Force RCA + warn</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Programmatic overrides -->
+    <hr class="divider" style="margin:20px 0"/>
+    <h2 style="margin-bottom:4px">Programmatic Overrides — Why the Score Is Auditable, Not a Black Box</h2>
+    <p class="note">The LLM worker produces an initial confidence score. The controller then applies deterministic rules on top — making the final score explainable and testable.</p>
+    <div class="code" style="font-size:11.5px">
+<span class="c"># controller/confidence.py — applied after every worker LLM call</span>
+
+<span class="sec">def apply_overrides</span>(score: float, findings: list, evidence: dict, stage: int) -> float:
+
+    <span class="c"># Hard floor: can't be high-confidence with nothing ruled out</span>
+    <span class="k">if</span> len(evidence.get(<span class="s">"ruled_out"</span>, [])) == <span class="n">0</span>:
+        score = min(score, <span class="n">0.65</span>)
+
+    <span class="c"># Hard floor: single data source at Stage 1</span>
+    <span class="k">if</span> stage == <span class="n">1</span> <span class="k">and</span> len(evidence.get(<span class="s">"tools_called"</span>, [])) <= <span class="n">1</span>:
+        score = min(score, <span class="n">0.70</span>)
+
+    <span class="c"># Boost: external authoritative source confirms outage</span>
+    <span class="k">if</span> evidence.get(<span class="s">"external_status_page_down"</span>) <span class="k">and</span> <span class="s">"ConnectTimeout"</span> <span class="k">in</span> str(findings):
+        score = max(score, <span class="n">0.95</span>)   <span class="c"># partner outage confirmed → very high confidence</span>
+
+    <span class="c"># Boost: specific config value found that matches symptom</span>
+    <span class="k">if</span> evidence.get(<span class="s">"config_value_confirmed"</span>) <span class="k">and</span> evidence.get(<span class="s">"code_pattern_confirmed"</span>):
+        score = max(score, <span class="n">0.92</span>)   <span class="c"># config + code = strong root cause</span>
+
+    <span class="c"># Penalty: contradicting signals</span>
+    <span class="k">if</span> evidence.get(<span class="s">"contradicting_signals"</span>):
+        score = min(score, <span class="n">0.60</span>)
+
+    <span class="k">return</span> round(score, <span class="n">2</span>)
+</div>
+
+    <!-- Walkthrough -->
+    <hr class="divider" style="margin:20px 0"/>
+    <h2 style="margin-bottom:12px">Real Walkthrough — dp-service OOM Investigation</h2>
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:110px 1fr 120px;gap:12px;padding:8px 14px;background:var(--elevated);border-bottom:1px solid var(--border);font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">
+        <div>Worker / Stage</div><div>What it saw + why that score</div><div style="text-align:right">Score → Action</div>
+      </div>
+      <div style="padding:0 14px">
+        <div class="walkthrough-step">
+          <div><div class="wt-worker" style="color:var(--green)">K8s Worker</div><div style="font-size:10px;color:var(--muted)">Stage 1 · ~520T</div></div>
+          <div class="wt-why">3 OOMKills in 30min ✓ · No recent deploy ✓ · Restart interval 25-30s noted. <strong style="color:var(--text)">But</strong> only one source (K8s), zero logs, zero metrics. Cause of heap spike unknown. Two unexplored paths: GC config, memory leak.</div>
+          <div class="wt-score" style="color:var(--orange)">0.55<div style="font-size:10px;color:var(--orange);font-weight:400">→ Escalate S2</div></div>
+        </div>
+        <div class="walkthrough-step">
+          <div><div class="wt-worker" style="color:var(--yellow)">Obs Worker</div><div style="font-size:10px;color:var(--muted)">Stage 2 · +1,400T</div></div>
+          <div class="wt-why">Loki: "Processing batch of 5000 messages" every 30s — matches restart interval. Prometheus: 300MB→1.95GB spike exactly at same cadence. Two independent sources agree. <strong style="color:var(--text)">But</strong> config value not verified — batch size could be configurable or hardcoded. One path unexplored.</div>
+          <div class="wt-score" style="color:var(--yellow)">0.73<div style="font-size:10px;color:var(--yellow);font-weight:400">→ Escalate S3</div></div>
+        </div>
+        <div class="walkthrough-step">
+          <div><div class="wt-worker" style="color:var(--purple)">App Worker</div><div style="font-size:10px;color:var(--muted)">Stage 3 · +900T</div></div>
+          <div class="wt-why">ConfigMap: DP_BATCH_SIZE=5000 confirmed. Code: <code>collect(toList())</code> materialises all 5000 before any write. Memory math: 5000×160KB=800MB+overhead=~1.3GB. Three independent sources. All alternatives ruled out. Causal chain complete.</div>
+          <div class="wt-score" style="color:var(--green)">0.96<div style="font-size:10px;color:var(--green);font-weight:400">→ CONCLUDE</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-conf -->
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB 7 — OSS COMPARISON                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="tab-compare" class="panel">
+    <h2>HolmesGPT vs IncidentFox vs Infinity-Sentinel — Feature Comparison</h2>
+    <p class="note">Based on source code analysis of both open-source projects. "None" means the feature is genuinely absent — not just undocumented. Our proposed design deliberately takes the best of both and adds the missing pieces.</p>
+
+    <!-- Project summaries -->
+    <div class="proj-hdr">
+      <div class="proj-card" style="border-color:#2d2d00">
+        <div class="proj-name" style="color:#f59e0b">HolmesGPT</div>
+        <div class="proj-tag">Single-agent LLM troubleshooter. Issues tool calls in a loop until it reaches a conclusion. No orchestration layer — one agent does everything. Strong on Kubernetes + Prometheus toolsets. MCP-native.</div>
+        <div class="proj-verdict verdict-part">⚠ Good tool coverage, but single agent — no specialization, no staged context, no confidence gating, no inventory graph.</div>
+      </div>
+      <div class="proj-card" style="border-color:#002d10">
+        <div class="proj-name" style="color:#4ade80">IncidentFox</div>
+        <div class="proj-tag">Multi-agent SRE framework. Orchestrator routes to specialised skill agents. Has credential proxy, MCP tools, Slack integration. Built for structured incident workflows.</div>
+        <div class="proj-verdict verdict-part">⚠ Best multi-agent architecture of the two, but no confidence scoring, no RAG, no token budget, no inventory/graph layer.</div>
+      </div>
+      <div class="proj-card" style="border-color:var(--purple-b)">
+        <div class="proj-name" style="color:var(--purple)">Infinity-Sentinel (Proposed)</div>
+        <div class="proj-tag">Takes IncidentFox's multi-agent orchestration + HolmesGPT's tool adapters and adds: confidence gating, staged context loading, RAG, inventory + dataflow graph, token budget, PagerDuty-first.</div>
+        <div class="proj-verdict verdict-us">🎯 Combines the best of both and adds the architectural pieces missing for production-grade reliability at scale.</div>
+      </div>
+    </div>
+
+    <!-- Main comparison table -->
+    <div class="cmp-wrap">
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;min-width:220px">Feature</th>
+            <th style="color:#f59e0b;min-width:150px">HolmesGPT</th>
+            <th style="color:#4ade80;min-width:150px">IncidentFox</th>
+            <th class="th-us" style="min-width:160px">Infinity-Sentinel</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <tr>
+            <td><div class="cmp-feat">Confidence score + threshold gate</div><div class="cmp-feat-sub">Numeric 0–1 score per worker, escalate only when &lt; 0.85</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">LLM decides to stop on its own — no auditable threshold</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Orchestrator routes based on LLM judgement, not a score</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Core feature</span><div style="font-size:10.5px;margin-top:3px">Worker produces score + controller applies programmatic overrides</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Multi-agent orchestration</div><div class="cmp-feat-sub">Specialised workers, controller routes between them</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Single agent issues all tool calls itself</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Orchestrator + skill agents (SRE, db, etc.)</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;margin-top:3px">K8s · Airflow · Kafka · Mongo · App RCA · Infra workers</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Staged context loading</div><div class="cmp-feat-sub">Stage 1 cheap context → escalate only if needed</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Loads all context upfront or fetches freely without budget</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">No staged escalation model</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ 3 stages</span><div style="font-size:10.5px;margin-top:3px">500T → 2,000T → 4,500T per investigation</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Token budget manager</div><div class="cmp-feat-sub">Hard cap per investigation, tracked across workers</div></td>
+            <td><span class="cmp-no">None</span></td>
+            <td><span class="cmp-no">None</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ 8K cap</span><div style="font-size:10.5px;margin-top:3px">Redis counter, blocks Stage 3 if exceeded</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">RAG over runbooks + past RCAs</div><div class="cmp-feat-sub">Semantic retrieval of relevant knowledge chunks</div></td>
+            <td><span class="cmp-part">⚠ Partial</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">datasource-catalog.json for tool discovery, not semantic RAG</div></td>
+            <td><span class="cmp-no">None</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Full</span><div style="font-size:10.5px;margin-top:3px">pgvector + text-embedding-3-small. Confluece + past RCAs indexed</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Inventory DB</div><div class="cmp-feat-sub">Structured service/DAG/topic records with routing metadata</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">No service catalog — LLM guesses where to look</div></td>
+            <td><span class="cmp-part">⚠ Flat YAML</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Config files, not queryable inventory</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ PostgreSQL</span><div style="font-size:10.5px;margin-top:3px">Per-entity records: cluster, credentials_ref, loki/prometheus labels</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Dataflow dependency graph</div><div class="cmp-feat-sub">"Who writes to hl7message?" answered in 1 DB query</div></td>
+            <td><span class="cmp-no">None</span></td>
+            <td><span class="cmp-no">None</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Neo4j / pgvector</span><div style="font-size:10.5px;margin-top:3px">Resolves primary_owner, upstream chain — 0 LLM tokens</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Deterministic routing (no LLM for routing)</div><div class="cmp-feat-sub">Rule-based: entity_type → worker path</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">LLM decides which tool to call next</div></td>
+            <td><span class="cmp-part">⚠ Partial</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Entrance agent does some rule-based routing but incomplete</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ YAML rules</span><div style="font-size:10.5px;margin-top:3px">entity_type dict, 0 LLM tokens for routing decisions</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Approval gate before write/exec</div><div class="cmp-feat-sub">Human must approve before any action runs in prod</div></td>
+            <td><span class="cmp-part">⚠ Optional</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Has --interactive flag but not enforced architecturally</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Confirmation step in orchestrator flow</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Hard gate</span><div style="font-size:10.5px;margin-top:3px">LangGraph interrupt() — graph cannot proceed without approval</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Credential proxy / Vault</div><div class="cmp-feat-sub">Credentials fetched at runtime, never in LLM context</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Credentials in env vars passed to tools</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">credential-proxy service in architecture</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Vault</span><div style="font-size:10.5px;margin-top:3px">hvac SDK, AppRole auth, creds discarded after adapter call</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">K8s investigation tools</div><div class="cmp-feat-sub">Pod health, resource usage, node pressure, HPA</div></td>
+            <td><span class="cmp-yes">✓ Strong</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">kubernetes Python client + Prometheus metrics well covered</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">K8s skills in SRE agent</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Dedicated worker</span></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Airflow DAG investigation</div></td>
+            <td><span class="cmp-part">⚠ Basic</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Via generic HTTP tool, not a dedicated Airflow adapter</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Airflow skill with REST API</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Dedicated worker</span><div style="font-size:10.5px;margin-top:3px">Run history, task-level logs, duration anomaly detection</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Kafka / MSK investigation</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Kafka admin tools in toolset inventory</div></td>
+            <td><span class="cmp-yes">✓ Yes</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Kafka consumer group skill</div></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Dedicated worker</span><div style="font-size:10.5px;margin-top:3px">confluent-kafka + boto3 MSK + Prometheus Kafka metrics</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">MongoDB investigation</div></td>
+            <td><span class="cmp-part">⚠ Limited</span></td>
+            <td><span class="cmp-part">⚠ Limited</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Dedicated worker</span><div style="font-size:10.5px;margin-top:3px">PyMongo read-only + Atlas API + currentOp slow queries</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">App code + config investigation</div><div class="cmp-feat-sub">Read ConfigMap values + GitHub code snippets</div></td>
+            <td><span class="cmp-part">⚠ Partial</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Can call GitHub via HTTP but not a structured code-analysis adapter</div></td>
+            <td><span class="cmp-no">None</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Dedicated worker</span><div style="font-size:10.5px;margin-top:3px">K8s ConfigMap + GitHub API + optional RAG over code</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Infrastructure network probe</div><div class="cmp-feat-sub">DNS, TCP, VPC egress, security group checks</div></td>
+            <td><span class="cmp-no">None</span></td>
+            <td><span class="cmp-no">None</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Dedicated worker</span><div style="font-size:10.5px;margin-top:3px">dnspython + socket + boto3 + httpx status check</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">PagerDuty as primary alert source</div></td>
+            <td><span class="cmp-part">⚠ Partial</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">Can receive PagerDuty events but not first-class integration</div></td>
+            <td><span class="cmp-part">⚠ Partial</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ First-class</span><div style="font-size:10.5px;margin-top:3px">incident_key, service name, severity all used for routing. Resolves/updates incident on completion.</div></td>
+          </tr>
+
+          <tr>
+            <td><div class="cmp-feat">Investigation state persistence</div><div class="cmp-feat-sub">Resume interrupted investigation, audit trail</div></td>
+            <td><span class="cmp-no">None</span><div style="font-size:10.5px;color:var(--muted);margin-top:3px">In-memory only — lost on restart</div></td>
+            <td><span class="cmp-part">⚠ Limited</span></td>
+            <td class="cmp-us-cell"><span class="cmp-yes">✓ Redis + S3</span><div style="font-size:10.5px;margin-top:3px">LangGraph checkpointer to Redis, full evidence archive to S3</div></td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Why we chose our approach -->
+    <h2 style="margin-top:24px;margin-bottom:12px">Why We Build Our Own — Key Reasoning</h2>
+    <div class="why-grid">
+      <div class="why-card" style="border-color:var(--green-b)">
+        <div class="why-title"><span class="pill green">From IncidentFox</span> Multi-agent structure</div>
+        <div class="why-body">IncidentFox's orchestrator + specialised skill-agent model is the right architecture. Workers that know only one domain (K8s, Airflow, Kafka) produce better, tighter prompts and smaller contexts than one agent trying to know everything. We take this pattern entirely.</div>
+      </div>
+      <div class="why-card" style="border-color:var(--yellow-b)">
+        <div class="why-title"><span class="pill" style="background:var(--yellow-dim);color:var(--yellow);border:1px solid var(--yellow-b)">From HolmesGPT</span> Tool adapter depth</div>
+        <div class="why-body">HolmesGPT has the best breadth of tool adapters (K8s, Prometheus, Loki, Kafka, GitHub, etc.). The MCP-native approach and datasource-catalog concept are sound. We adopt the adapter pattern but wrap them in typed Python classes instead of raw MCP calls.</div>
+      </div>
+      <div class="why-card" style="border-color:var(--purple-b)">
+        <div class="why-title"><span class="pill purple">New: Confidence + Staged Context</span></div>
+        <div class="why-body">Neither OSS project has confidence scoring or staged context loading. Without it, investigations either over-spend tokens (load everything upfront) or under-investigate (stop too early). The 0.85 threshold + 3-stage escalation is the key architectural addition that makes the system cost-efficient and thorough.</div>
+      </div>
+      <div class="why-card" style="border-color:var(--accent-b)">
+        <div class="why-title"><span class="pill blue">New: Inventory + Dataflow Graph</span></div>
+        <div class="why-body">Both OSS projects rely on the LLM to figure out what to query and where. This wastes tokens and produces inconsistent results. A queryable inventory DB + dependency graph means the controller knows in 1 DB lookup that "hl7message is written by bulkFHIR-processor consuming bulkFHIR-events" — before any LLM call.</div>
+      </div>
+      <div class="why-card" style="border-color:var(--teal-b)">
+        <div class="why-title"><span class="pill teal">New: RAG over runbooks</span></div>
+        <div class="why-body">Neither project has semantic retrieval over institutional knowledge. When an OOM happens, a 300-token Confluence chunk saying "dp-service batch size controls memory" is more valuable than 3,000 tokens of raw logs. RAG bridges the gap between what the LLM knows generically and what the engineering team has documented specifically.</div>
+      </div>
+      <div class="why-card" style="border-color:var(--red-b)">
+        <div class="why-title"><span class="pill red">Not replacing either entirely</span></div>
+        <div class="why-body">HolmesGPT's tool adapters can be re-used as-is (wrapped as our adapters) rather than rewriting from scratch. IncidentFox's credential proxy architecture is worth adopting directly. Building Infinity-Sentinel is additive — we compose on top of proven pieces rather than discarding them.</div>
+      </div>
+    </div>
+
+  </div><!-- /tab-compare -->
+
+  <hr style="border:none;border-top:1px solid var(--border);margin:48px 0 20px"/>
+  <div style="text-align:center;padding-bottom:32px">
+    <div style="margin-bottom:8px">
+      <span style="color:#555;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase">Architect</span>
+      <span style="color:#5b8ff9;font-weight:700;font-size:13px;margin-left:7px">Chandrika Prasad</span>
+    </div>
+    <div style="margin-bottom:6px">
+      <span style="color:#555;font-size:11px;letter-spacing:.04em;text-transform:uppercase">Stack</span>
+      <span style="color:#444;margin:0 8px;font-size:13px">—</span>
+      <span style="color:#c084fc;font-weight:700;font-size:13px">Infinity-Sentinel</span>
+      <span style="color:#555;font-size:11px;font-style:italic;margin-left:6px">(Agentic AI Troubleshooter)</span>
+    </div>
+    <div style="font-size:11px;color:#444;margin-top:4px">
+      <span style="color:#555;font-weight:500">Supports:</span>
+      <span style="color:#5b8ff9;margin-left:8px">EKS</span><span style="color:#333;margin:0 5px">/</span><span style="color:#5b8ff9">AKS</span>
+      <span style="color:#333;margin:0 8px">·</span><span style="color:#fb923c">Airflow</span>
+      <span style="color:#333;margin:0 8px">·</span><span style="color:#4ade80">MSK</span>
+      <span style="color:#333;margin:0 8px">·</span><span style="color:#c084fc">MongoDB</span>
+      <span style="color:#333;margin:0 8px">·</span><span style="color:#f87171">RDS</span>
+      <span style="color:#333;margin:0 8px">·</span><span style="color:#2dd4bf">Observability</span>
+      <span style="color:#555;font-size:10px;margin-left:3px">(Prometheus · Loki · Grafana)</span>
+      <span style="color:#333;margin:0 8px">·</span><span style="color:#f59e0b">PagerDuty</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function show(id, el) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    el.classList.add('active');
+  }
+  function showW(id, el) {
+    document.querySelectorAll('.wsection').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.wtab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>

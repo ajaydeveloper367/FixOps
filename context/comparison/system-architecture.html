@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Architecture — Agentic Ops</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #181818;
+      --elevated: #1f1f1f;
+      --border: #2a2a2a;
+      --border2: #333;
+      --text: #e8e8e8;
+      --muted: #888;
+      --muted2: #555;
+      --accent: #5b8ff9;
+      --warn: #d97706;
+      --warn-bg: #2d1f00;
+      --warn-border: #78350f;
+      --success-text: #4ade80;
+      --success-bg: #0d2d1a;
+      --success-border: #16532e;
+      --warning-text: #f59e0b;
+      --warning-bg: #2d2200;
+      --warning-border: #78350f;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body { background: var(--bg); color: var(--text); padding: 40px 24px 80px; line-height: 1.6; }
+    .container { max-width: 900px; margin: 0 auto; }
+
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+    /* ── Architecture SVG ── */
+    .arch-svg-wrap { background: var(--surface); border-radius: 8px; overflow: hidden; padding: 4px; }
+    svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+
+    /* ── Investigation flow ── */
+    .flow-wrap { background: var(--surface); border-radius: 8px; padding: 4px; overflow-x: auto; }
+
+    /* ── Phase table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--surface); }
+    tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #1a1a1a; }
+    .col-phase { font-weight: 600; color: var(--accent); white-space: nowrap; }
+    .col-note { color: var(--muted); font-size: 12px; }
+
+    /* ── Cards ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .card-header { padding: 10px 14px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .card-body { padding: 14px; }
+    .card-body p { font-size: 12.5px; color: var(--muted); margin-bottom: 7px; }
+    .card-body p:last-child { margin-bottom: 0; }
+    .card-body p::before { content: "· "; color: var(--muted2); }
+
+    /* ── Pill ── */
+    .pill { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; }
+    .pill.success { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+    .pill.warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
+
+    /* ── Tabs ── */
+    .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:28px;border-bottom:1px solid var(--border);padding-bottom:14px}
+    .tab{padding:5px 14px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);background:none;border:1px solid transparent;transition:all .15s}
+    .tab:hover{color:var(--accent);border-color:var(--accent)}
+    .tab.active{background:#1a2035;color:var(--accent);border-color:var(--accent)}
+    .panel{display:none}.panel.active{display:block}
+
+    /* ── RAG tab styles ── */
+    .rag-layer{display:flex;flex-direction:column;gap:0}
+    .rl-band{border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:4px;position:relative}
+    .rl-band-label{position:absolute;top:-10px;left:14px;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:1px 8px;border-radius:3px}
+    .rl-band.ctrl{background:#0e1628;border-color:#1e3a5f}
+    .rl-band.ctrl .rl-band-label{background:#0e1628;color:#5b8ff9;border:1px solid #1e3a5f}
+    .rl-band.rag{background:#160a24;border-color:#5b21b6}
+    .rl-band.rag .rl-band-label{background:#160a24;color:#c084fc;border:1px solid #5b21b6}
+    .rl-band.worker{background:#0a2016;border-color:#15472a}
+    .rl-band.worker .rl-band-label{background:#0a2016;color:#4ade80;border:1px solid #15472a}
+    .rl-arrow{text-align:center;padding:4px 0;font-size:11px;color:var(--muted2);font-style:italic}
+    .rl-row{display:flex;gap:10px;flex-wrap:wrap}
+    .rl-box{flex:1;min-width:120px;border-radius:6px;padding:9px 12px;font-size:11.5px;border:1px solid var(--border)}
+    .rl-box-name{font-weight:700;font-size:12px;margin-bottom:3px}
+    .rl-box-desc{font-size:10.5px;color:var(--muted);line-height:1.5}
+
+    /* Source cards */
+    .source-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+    .source-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px}
+    .sc-icon{font-size:18px;margin-bottom:6px}
+    .sc-name{font-size:12px;font-weight:700;margin-bottom:4px}
+    .sc-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+    .sc-meta{font-size:10px;color:var(--muted2)}
+    .sc-tag{display:inline-block;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:3px;margin-top:4px;border:1px solid var(--border)}
+
+    /* Update trigger cards */
+    .trigger-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;overflow:hidden}
+    .tc-hdr{padding:10px 14px;background:#1e1e1e;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700}
+    .tc-body{padding:14px}
+    .tc-flow{display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-bottom:12px}
+    .tf-step{background:#111;border:1px solid var(--border);border-radius:6px;padding:7px 11px;font-size:11px;flex-shrink:0;min-width:110px;text-align:center}
+    .tf-step-name{font-weight:700;margin-bottom:2px}
+    .tf-step-sub{font-size:10px;color:var(--muted)}
+    .tf-arrow{padding:0 6px;font-size:14px;color:var(--muted2);flex-shrink:0}
+    .tc-detail{font-size:11.5px;color:var(--muted);line-height:1.6}
+    .tc-detail code{color:var(--text);background:#111;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px}
+
+    /* Freshness table */
+    .fresh-row{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;align-items:flex-start}
+    .fresh-row:last-child{border-bottom:none}
+    .fresh-field{font-family:monospace;font-size:11px;color:#5b8ff9;min-width:160px;flex-shrink:0}
+    .fresh-desc{color:var(--muted);line-height:1.5;font-size:11.5px}
+
+    .note-box{background:#1a1a1a;border:1px solid var(--border);border-radius:6px;padding:11px 14px;font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:14px}
+    .note-box strong{color:var(--text)}
+
+    @media (max-width: 640px) { .grid-2,.source-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <h1>System Architecture — Infinity-Sentinel</h1>
+  <p class="subtitle">Metadata-driven controller · MCP-native tool adapters · Staged context loading · Human-gated execution</p>
+
+  <div class="tabs">
+    <span class="tab active" onclick="showTab('tab-arch',this)">① Architecture &amp; Flow</span>
+    <span class="tab"        onclick="showTab('tab-rag',this)">② RAG Layer &amp; Knowledge Updates</span>
+  </div>
+
+  <div id="tab-arch" class="panel active">
+
+  <!-- ── COMPONENT ARCHITECTURE SVG ── -->
+  <h2>Component Architecture</h2>
+  <div class="arch-svg-wrap">
+  <svg width="860" height="610" viewBox="0 0 860 610" style="display:block; width:100%; height:auto;">
+    <defs>
+      <marker id="arr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#444"/>
+      </marker>
+      <marker id="arr-a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#5b8ff9"/>
+      </marker>
+      <marker id="arr-w" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#d97706"/>
+      </marker>
+      <marker id="arr-m" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#444"/>
+      </marker>
+    </defs>
+
+    <!-- Background -->
+    <rect x="0" y="0" width="860" height="610" fill="#181818" rx="8"/>
+
+    <!-- ══ CONNECTIONS ══ -->
+
+    <!-- Alert → Controller -->
+    <line x1="415" y1="58" x2="415" y2="96" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+    <!-- Controller ↔ Inventory -->
+    <line x1="255" y1="122" x2="180" y2="122" stroke="#444" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#arr-m)" marker-start="url(#arr-m)"/>
+
+    <!-- Controller ↔ Dataflow Graph -->
+    <line x1="575" y1="122" x2="648" y2="122" stroke="#444" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#arr-m)" marker-start="url(#arr-m)"/>
+
+    <!-- Controller → worker bus: vertical stem -->
+    <line x1="415" y1="152" x2="415" y2="218" stroke="#444" stroke-width="1.5"/>
+    <!-- Horizontal bus rail -->
+    <line x1="147" y1="218" x2="683" y2="218" stroke="#444" stroke-width="1.5"/>
+    <!-- Drops to workers -->
+    <line x1="147" y1="218" x2="147" y2="242" stroke="#444" stroke-width="1" marker-end="url(#arr)"/>
+    <line x1="281" y1="218" x2="281" y2="242" stroke="#444" stroke-width="1" marker-end="url(#arr)"/>
+    <line x1="415" y1="218" x2="415" y2="242" stroke="#444" stroke-width="1" marker-end="url(#arr)"/>
+    <line x1="549" y1="218" x2="549" y2="242" stroke="#444" stroke-width="1" marker-end="url(#arr)"/>
+    <line x1="683" y1="218" x2="683" y2="242" stroke="#444" stroke-width="1" marker-end="url(#arr)"/>
+
+    <!-- Workers → Approval (dashed findings) -->
+    <line x1="147" y1="280" x2="415" y2="358" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.45" marker-end="url(#arr)"/>
+    <line x1="281" y1="280" x2="415" y2="358" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.45" marker-end="url(#arr)"/>
+    <line x1="415" y1="280" x2="415" y2="358" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.45" marker-end="url(#arr)"/>
+    <line x1="549" y1="280" x2="415" y2="358" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.45" marker-end="url(#arr)"/>
+    <line x1="683" y1="280" x2="415" y2="358" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.45" marker-end="url(#arr)"/>
+
+    <!-- Approval → Executor -->
+    <line x1="415" y1="394" x2="415" y2="448" stroke="#d97706" stroke-width="2" marker-end="url(#arr-w)"/>
+
+    <!-- Executor → Adapter bus -->
+    <line x1="415" y1="484" x2="415" y2="516" stroke="#5b8ff9" stroke-width="1.5"/>
+    <!-- Adapter horizontal bus -->
+    <line x1="114" y1="516" x2="714" y2="516" stroke="#5b8ff9" stroke-width="1.5"/>
+    <!-- Drops to adapters -->
+    <line x1="114" y1="516" x2="114" y2="540" stroke="#5b8ff9" stroke-width="1" marker-end="url(#arr-a)"/>
+    <line x1="232" y1="516" x2="232" y2="540" stroke="#5b8ff9" stroke-width="1" marker-end="url(#arr-a)"/>
+    <line x1="348" y1="516" x2="348" y2="540" stroke="#5b8ff9" stroke-width="1" marker-end="url(#arr-a)"/>
+    <line x1="466" y1="516" x2="466" y2="540" stroke="#5b8ff9" stroke-width="1" marker-end="url(#arr-a)"/>
+    <line x1="582" y1="516" x2="582" y2="540" stroke="#5b8ff9" stroke-width="1" marker-end="url(#arr-a)"/>
+    <line x1="714" y1="516" x2="714" y2="540" stroke="#5b8ff9" stroke-width="1" marker-end="url(#arr-a)"/>
+
+    <!-- ══ NODES ══ -->
+
+    <!-- ALERT -->
+    <rect x="335" y="22" width="160" height="34" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="415" y="39" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="600" fill="#e8e8e8">Alert / Request</text>
+
+    <!-- CONTROLLER -->
+    <rect x="255" y="96" width="320" height="54" rx="6" fill="#1a2035" stroke="#5b8ff9" stroke-width="2"/>
+    <text x="415" y="116" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="700" fill="#5b8ff9">CONTROLLER</text>
+    <text x="415" y="136" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#888">Route · Budget context · Orchestrate · Audit</text>
+
+    <!-- INVENTORY (left) -->
+    <rect x="22" y="105" width="155" height="34" rx="5" fill="#1a1a1a" stroke="#444" stroke-width="1" stroke-dasharray="5 3"/>
+    <text x="99" y="118" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">Inventory</text>
+    <text x="99" y="130" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">runtime · cluster · owner</text>
+
+    <!-- DATAFLOW GRAPH (right) -->
+    <rect x="648" y="105" width="158" height="34" rx="5" fill="#1a1a1a" stroke="#444" stroke-width="1" stroke-dasharray="5 3"/>
+    <text x="727" y="118" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">Dataflow Graph</text>
+    <text x="727" y="130" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">producer · consumer · owns</text>
+
+    <!-- WORKER 1: K8s -->
+    <rect x="87" y="242" width="120" height="36" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="147" y="255" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">K8s Worker</text>
+    <text x="147" y="268" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">EKS / Pods</text>
+
+    <!-- WORKER 2: Pipeline -->
+    <rect x="221" y="242" width="120" height="36" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="281" y="255" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">Pipeline Worker</text>
+    <text x="281" y="268" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">Airflow / Kafka</text>
+
+    <!-- WORKER 3: App -->
+    <rect x="355" y="242" width="120" height="36" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="415" y="255" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">App Worker</text>
+    <text x="415" y="268" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">Code / Config</text>
+
+    <!-- WORKER 4: DB -->
+    <rect x="489" y="242" width="120" height="36" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="549" y="255" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">DB Worker</text>
+    <text x="549" y="268" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">Mongo / RDS</text>
+
+    <!-- WORKER 5: Obs -->
+    <rect x="623" y="242" width="120" height="36" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="683" y="255" text-anchor="middle" dominant-baseline="middle" font-size="10" font-weight="600" fill="#e8e8e8">Obs Worker</text>
+    <text x="683" y="268" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#666">Prom / Loki</text>
+
+    <!-- APPROVAL GATE -->
+    <rect x="290" y="358" width="250" height="34" rx="5" fill="#2d1f00" stroke="#d97706" stroke-width="1.5"/>
+    <text x="415" y="375" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="#d97706">Approval Gate · Human-in-the-loop</text>
+
+    <!-- EXECUTOR -->
+    <rect x="330" y="448" width="170" height="34" rx="5" fill="#1a2035" stroke="#5b8ff9" stroke-width="1.5"/>
+    <text x="415" y="465" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="600" fill="#5b8ff9">Executor</text>
+
+    <!-- ADAPTER 1 -->
+    <rect x="62" y="540" width="104" height="26" rx="4" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="114" y="553" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#888">K8s / EKS</text>
+
+    <!-- ADAPTER 2 -->
+    <rect x="180" y="540" width="104" height="26" rx="4" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="232" y="553" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#888">Airflow</text>
+
+    <!-- ADAPTER 3 -->
+    <rect x="296" y="540" width="104" height="26" rx="4" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="348" y="553" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#888">Kafka</text>
+
+    <!-- ADAPTER 4 -->
+    <rect x="414" y="540" width="104" height="26" rx="4" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="466" y="553" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#888">Mongo / RDS</text>
+
+    <!-- ADAPTER 5 -->
+    <rect x="530" y="540" width="104" height="26" rx="4" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="582" y="553" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#888">Prometheus</text>
+
+    <!-- ADAPTER 6 -->
+    <rect x="662" y="540" width="104" height="26" rx="4" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="714" y="553" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="#888">Loki / Tempo</text>
+
+    <!-- Layer labels -->
+    <text x="6" y="39" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic">INPUT</text>
+    <text x="6" y="122" font-size="7" fill="#5b8ff9" dominant-baseline="middle" font-style="italic">CONTROL</text>
+    <text x="6" y="122" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic"> </text>
+    <text x="6" y="260" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic">WORKERS</text>
+    <text x="6" y="375" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic">GATE</text>
+    <text x="6" y="465" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic">EXEC</text>
+    <text x="6" y="553" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic">TOOLS</text>
+
+    <!-- Meta label -->
+    <text x="6" y="122" font-size="7" fill="#555" dominant-baseline="middle" font-style="italic"> </text>
+  </svg>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ── INVESTIGATION FLOW ── -->
+  <h2>Investigation Flow — "pdata failed messages"</h2>
+  <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Controller walks the chain upstream until it finds the first broken link.</p>
+  <div class="flow-wrap">
+  <svg width="860" height="100" viewBox="0 0 860 100" style="display:block; width:100%; height:auto; min-width:700px;">
+    <defs>
+      <marker id="farr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#444"/>
+      </marker>
+    </defs>
+    <rect x="0" y="0" width="860" height="100" fill="#181818" rx="8"/>
+
+    <!-- Arrows between nodes -->
+    <line x1="98" y1="50" x2="110" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+    <line x1="206" y1="50" x2="218" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+    <line x1="314" y1="50" x2="326" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+    <line x1="422" y1="50" x2="434" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+    <line x1="530" y1="50" x2="542" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+    <line x1="638" y1="50" x2="650" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+    <line x1="746" y1="50" x2="758" y2="50" stroke="#444" stroke-width="1" marker-end="url(#farr)"/>
+
+    <!-- Node 1: Alert -->
+    <rect x="8" y="28" width="90" height="44" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="53" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#e8e8e8">Alert</text>
+    <text x="53" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#666">pdata failed</text>
+
+    <!-- Node 2: Dataflow Graph -->
+    <rect x="110" y="28" width="96" height="44" rx="5" fill="#1a1a1a" stroke="#444" stroke-width="1" stroke-dasharray="4 3"/>
+    <text x="158" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#e8e8e8">Dataflow</text>
+    <text x="158" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#666">resolve owner</text>
+
+    <!-- Node 3: K8s Worker -->
+    <rect x="218" y="28" width="96" height="44" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="266" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#e8e8e8">K8s Worker</text>
+    <text x="266" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#666">consumer ok?</text>
+
+    <!-- Node 4: Kafka Worker -->
+    <rect x="326" y="28" width="96" height="44" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="374" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#e8e8e8">Kafka Worker</text>
+    <text x="374" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#666">topic empty?</text>
+
+    <!-- Node 5: Airflow Worker -->
+    <rect x="434" y="28" width="96" height="44" rx="5" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="482" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#e8e8e8">Airflow Worker</text>
+    <text x="482" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#666">DAG failed?</text>
+
+    <!-- Node 6: RCA -->
+    <rect x="542" y="28" width="96" height="44" rx="5" fill="#1a2035" stroke="#5b8ff9" stroke-width="1.5"/>
+    <text x="590" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#5b8ff9">RCA</text>
+    <text x="590" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#888">root cause found</text>
+
+    <!-- Node 7: Approval -->
+    <rect x="650" y="28" width="96" height="44" rx="5" fill="#2d1f00" stroke="#d97706" stroke-width="1.5"/>
+    <text x="698" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#d97706">Approval</text>
+    <text x="698" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#888">human review</text>
+
+    <!-- Node 8: Executor -->
+    <rect x="758" y="28" width="94" height="44" rx="5" fill="#1a2035" stroke="#5b8ff9" stroke-width="1.5"/>
+    <text x="805" y="44" text-anchor="middle" dominant-baseline="middle" font-size="9" font-weight="600" fill="#5b8ff9">Executor</text>
+    <text x="805" y="57" text-anchor="middle" dominant-baseline="middle" font-size="8" fill="#888">fix applied</text>
+  </svg>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ── BUILD PHASES ── -->
+  <h2>Build Phases</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>What gets built</th>
+        <th>Outcome</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-phase">Phase 1</td>
+        <td>Controller + routing engine + worker interfaces + mocked tool adapters</td>
+        <td class="col-note">Full flow testable with fake data — validate logic end to end</td>
+      </tr>
+      <tr>
+        <td class="col-phase">Phase 2</td>
+        <td>Real K8s + Prometheus + Loki adapters</td>
+        <td class="col-note">Live infra investigation for pod/deployment alerts</td>
+      </tr>
+      <tr>
+        <td class="col-phase">Phase 3</td>
+        <td>Airflow + Kafka + Mongo adapters + dataflow graph auto-extraction</td>
+        <td class="col-note">Data pipeline alerts handled — pdata/bulkFHIR flow works</td>
+      </tr>
+      <tr>
+        <td class="col-phase">Phase 4</td>
+        <td>Inventory YAML schema + auto-sync from EKS / Airflow / code repos</td>
+        <td class="col-note">Routing becomes deterministic at scale</td>
+      </tr>
+      <tr>
+        <td class="col-phase">Phase 5</td>
+        <td>Approval UX + Executor + post-action verification loop</td>
+        <td class="col-note">Safe remediation — restart, rollback, pause, re-trigger</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider"/>
+
+  <!-- ── BUILD ASSESSMENT ── -->
+  <h2>What is ready to build vs what requires environment configuration</h2>
+  <div class="grid-2" style="margin-bottom:28px;">
+    <div class="card">
+      <div class="card-header">
+        Framework + Architecture
+        <span class="pill success">Ready to build</span>
+      </div>
+      <div class="card-body">
+        <p>Controller orchestration logic and routing engine</p>
+        <p>Worker interfaces and output contract schemas</p>
+        <p>Staged context loading policy enforcer</p>
+        <p>Inventory YAML schema + dataflow graph schema</p>
+        <p>Tool adapter interfaces (MCP-compatible)</p>
+        <p>Approval gate + executor scaffolding</p>
+        <p>Full test harness with mocked tools</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        Real operational wiring
+        <span class="pill warning">Requires configuration</span>
+      </div>
+      <div class="card-body">
+        <p>EKS credentials and cluster endpoints</p>
+        <p>Airflow API URL + auth</p>
+        <p>Kafka broker addresses + topic naming</p>
+        <p>Mongo connection strings + collection ownership</p>
+        <p>Prometheus / Loki / Tempo endpoints</p>
+        <p>Repo access for auto-graph extraction</p>
+        <p>Approval UX preference (chat / web / ticket)</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONCERNS TABLE ── -->
+  <h2>Honest concerns</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Concern</th>
+        <th>Impact</th>
+        <th>Mitigation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Auto-graph extraction from DAGs</td>
+        <td class="col-note">Phase 3 — needs repo access + parsing work</td>
+        <td class="col-note">Start with thin manual inventory, extract iteratively</td>
+      </tr>
+      <tr>
+        <td>LLM cost at scale (multi-worker per alert)</td>
+        <td class="col-note">Can be expensive if investigation runs deep</td>
+        <td class="col-note">Strict stage budgets + early-stop on high confidence</td>
+      </tr>
+      <tr>
+        <td>Credential isolation across clusters</td>
+        <td class="col-note">Security critical — different EKS envs</td>
+        <td class="col-note">Credential refs only (Envoy pattern), never in prompt</td>
+      </tr>
+      <tr>
+        <td>Keeping inventory fresh (new DAGs, services)</td>
+        <td class="col-note">Stale inventory breaks routing</td>
+        <td class="col-note">Git-versioned YAML + CI sync on new service onboarding</td>
+      </tr>
+      <tr>
+        <td>RCA accuracy on novel failures</td>
+        <td class="col-note">LLM may miss edge cases</td>
+        <td class="col-note">Confidence scoring + human review for low-confidence RCA</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider"/>
+
+  </div><!-- /tab-arch -->
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- TAB 2 — RAG LAYER & KNOWLEDGE UPDATES                      -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <div id="tab-rag" class="panel">
+
+    <h2>RAG Layer — Where It Sits &amp; What It Does</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">RAG (Retrieval-Augmented Generation) acts as the system's institutional memory. Instead of loading full runbooks (3,000+ tokens), the controller fetches only the 2–3 most relevant 300-token chunks and injects them into the worker's context. Result: richer investigation quality at a fraction of the token cost.</p>
+
+    <!-- Where RAG sits in the flow -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:22px">
+      <h2 style="margin-bottom:14px">Where RAG sits in the investigation flow</h2>
+      <div class="rag-layer">
+        <div class="rl-band ctrl">
+          <div class="rl-band-label">Controller</div>
+          <div class="rl-row" style="margin-top:6px">
+            <div class="rl-box" style="border-color:#1e3a5f;background:#0a1020">
+              <div class="rl-box-name" style="color:#5b8ff9">1 · Entity Extract</div>
+              <div class="rl-box-desc">Alert → entity_type, entity_name, alert_class extracted by LLM</div>
+            </div>
+            <div class="rl-box" style="border-color:#1e3a5f;background:#0a1020">
+              <div class="rl-box-name" style="color:#5b8ff9">2 · RAG Query Built</div>
+              <div class="rl-box-desc">Controller builds query string: <code style="font-family:monospace;font-size:10px;color:#aaa">"dp-service oom batch kafka"</code> from entity + alert_class + prior findings</div>
+            </div>
+            <div class="rl-box" style="border-color:#1e3a5f;background:#0a1020">
+              <div class="rl-box-name" style="color:#5b8ff9">3 · Context Assembled</div>
+              <div class="rl-box-desc">Inventory + graph + RAG chunks bundled into staged context object before worker dispatch</div>
+            </div>
+          </div>
+        </div>
+        <div class="rl-arrow">↕ query → top-3 chunks retrieved (cosine similarity ≥ 0.75)</div>
+        <div class="rl-band rag">
+          <div class="rl-band-label">RAG Store (pgvector)</div>
+          <div class="rl-row" style="margin-top:6px">
+            <div class="rl-box" style="border-color:#5b21b6;background:#0e0714">
+              <div class="rl-box-name" style="color:#c084fc">Vector DB</div>
+              <div class="rl-box-desc">pgvector extension on PostgreSQL. HNSW index. Each chunk: vector (1536-dim) + metadata (source, section, hash, indexed_at)</div>
+            </div>
+            <div class="rl-box" style="border-color:#5b21b6;background:#0e0714">
+              <div class="rl-box-name" style="color:#c084fc">Embedding Model</div>
+              <div class="rl-box-desc">OpenAI <code style="font-family:monospace;font-size:10px;color:#aaa">text-embedding-3-small</code> or local <code style="font-family:monospace;font-size:10px;color:#aaa">sentence-transformers</code>. Same model used for indexing and querying.</div>
+            </div>
+            <div class="rl-box" style="border-color:#5b21b6;background:#0e0714">
+              <div class="rl-box-name" style="color:#c084fc">Indexed Corpus</div>
+              <div class="rl-box-desc">Confluence runbooks · past RCA reports · architecture docs · service READMEs · code comments</div>
+            </div>
+          </div>
+        </div>
+        <div class="rl-arrow">↓ top-3 chunks (≈300 tokens total) injected into worker context</div>
+        <div class="rl-band worker">
+          <div class="rl-band-label">Worker (any)</div>
+          <div class="rl-row" style="margin-top:6px">
+            <div class="rl-box" style="border-color:#15472a;background:#060f09">
+              <div class="rl-box-name" style="color:#4ade80">Context received</div>
+              <div class="rl-box-desc">Alert + Inventory + Graph + <strong style="color:#c084fc">RAG chunks</strong> + prior findings → worker LLM call</div>
+            </div>
+            <div class="rl-box" style="border-color:#15472a;background:#060f09">
+              <div class="rl-box-name" style="color:#4ade80">Token saving</div>
+              <div class="rl-box-desc">~300 tokens from RAG vs ~3,000 for full runbook. Frees budget for observability data and code context.</div>
+            </div>
+            <div class="rl-box" style="border-color:#15472a;background:#060f09">
+              <div class="rl-box-name" style="color:#4ade80">Quality gain</div>
+              <div class="rl-box-desc">Worker receives prior resolution patterns: <em>"same OOM fixed by reducing BATCH_SIZE 3 months ago"</em> — guides investigation direction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- What gets indexed -->
+    <h2 style="margin-bottom:12px">What Gets Indexed into the RAG Store</h2>
+    <div class="source-grid">
+      <div class="source-card" style="border-color:#78350f">
+        <div class="sc-icon">📄</div>
+        <div class="sc-name" style="color:#fb923c">Confluence Runbooks</div>
+        <div class="sc-desc">Service-level troubleshooting guides. "How to debug bulkFHIR-processor OOM". "Airflow DAG failure checklist". Chunked by heading.</div>
+        <div class="sc-meta">Chunk size: 512 tokens · Overlap: 50 tokens</div>
+        <div><span class="sc-tag" style="color:#fb923c;border-color:#7c2d12;background:#1f0d00">Webhook trigger on page update</span></div>
+      </div>
+      <div class="source-card" style="border-color:#5b21b6">
+        <div class="sc-icon">🔍</div>
+        <div class="sc-name" style="color:#c084fc">Past RCA Reports</div>
+        <div class="sc-desc">Every completed investigation is auto-indexed. Semantic search finds: <em>"same service, same symptom, 3 months ago — fix was X"</em>. Highest investigation value.</div>
+        <div class="sc-meta">Chunk size: full RCA as structured markdown · Auto-indexed on completion</div>
+        <div><span class="sc-tag" style="color:#c084fc;border-color:#5b21b6;background:#160a24">Auto-index on RCA complete</span></div>
+      </div>
+      <div class="source-card" style="border-color:#15472a">
+        <div class="sc-icon">🏗</div>
+        <div class="sc-name" style="color:#4ade80">Architecture &amp; Design Docs</div>
+        <div class="sc-desc">Service descriptions, data flow narratives, dependency explanations. Helps workers understand upstream/downstream relationships when graph is ambiguous.</div>
+        <div class="sc-meta">Chunk size: 512 tokens · Section-aware splitting</div>
+        <div><span class="sc-tag" style="color:#4ade80;border-color:#15472a;background:#0a2016">Weekly scheduled re-index</span></div>
+      </div>
+      <div class="source-card" style="border-color:#1e3a5f">
+        <div class="sc-icon">📦</div>
+        <div class="sc-name" style="color:#5b8ff9">Service READMEs &amp; Code Comments</div>
+        <div class="sc-desc">README explains config options: <em>"BATCH_SIZE: number of messages per Kafka poll. Memory impact ~160KB per message."</em> Critical for App Worker context.</div>
+        <div class="sc-meta">Chunk size: 512 tokens · README.md + docstrings only</div>
+        <div><span class="sc-tag" style="color:#5b8ff9;border-color:#1e3a5f;background:#0a1020">GitHub PR merge trigger</span></div>
+      </div>
+      <div class="source-card" style="border-color:#0d4040">
+        <div class="sc-icon">📊</div>
+        <div class="sc-name" style="color:#2dd4bf">Monitoring Runbooks</div>
+        <div class="sc-desc">Grafana alert annotation notes, on-call team escalation guides, known-bad metric patterns. Bridges Prometheus alert to investigation history.</div>
+        <div class="sc-meta">Chunk size: 256 tokens · Alert-name tagged metadata</div>
+        <div><span class="sc-tag" style="color:#2dd4bf;border-color:#0d4040;background:#071c1c">Webhook on Grafana annotation update</span></div>
+      </div>
+      <div class="source-card" style="border-color:#78350f">
+        <div class="sc-icon">⚙</div>
+        <div class="sc-name" style="color:#f59e0b">DAG Documentation</div>
+        <div class="sc-desc">Airflow DAG docstrings and README per DAG. Explains external dependencies, retry logic, expected runtime. Helps Airflow Worker understand unusual failure modes.</div>
+        <div class="sc-meta">Chunk size: 512 tokens · DAG id tagged</div>
+        <div><span class="sc-tag" style="color:#f59e0b;border-color:#78350f;background:#221900">GitHub PR merge trigger</span></div>
+      </div>
+    </div>
+
+    <!-- Update triggers -->
+    <h2 style="margin-bottom:4px">How the RAG Store Stays Up to Date — 4 Update Triggers</h2>
+    <p style="font-size:11.5px;color:var(--muted);margin-bottom:16px">Stale chunks are a real risk. Each source has a dedicated update path so the vector store reflects the latest state of documentation and code.</p>
+
+    <div class="trigger-card">
+      <div class="tc-hdr">
+        <span style="color:#fb923c;font-size:15px">①</span>
+        <span>Confluence / Runbook page updated</span>
+        <span class="pill warning" style="margin-left:auto">Immediate</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-flow">
+          <div class="tf-step"><div class="tf-step-name">Confluence</div><div class="tf-step-sub">Page edited &amp; saved</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Webhook</div><div class="tf-step-sub">page_updated event → RAG indexer service</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Fetch &amp; Parse</div><div class="tf-step-sub">Fetch page HTML → strip → extract plain text</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Chunk</div><div class="tf-step-sub">512-token chunks, 50-token overlap, heading-aware</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Re-embed</div><div class="tf-step-sub">Embed only changed chunks (hash diff check)</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step" style="border-color:#5b21b6"><div class="tf-step-name" style="color:#c084fc">pgvector</div><div class="tf-step-sub">DELETE old chunks for page_id → INSERT new</div></div>
+        </div>
+        <div class="tc-detail">Hash check prevents unnecessary re-embedding — if page content hash unchanged, the indexer skips re-embedding and only updates the <code>source_updated_at</code> timestamp. Average update latency: &lt;60 seconds from Confluence save.</div>
+      </div>
+    </div>
+
+    <div class="trigger-card">
+      <div class="tc-hdr">
+        <span style="color:#5b8ff9;font-size:15px">②</span>
+        <span>GitHub PR merged — README, docstring, or DAG doc changed</span>
+        <span class="pill success" style="margin-left:auto">On merge</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-flow">
+          <div class="tf-step"><div class="tf-step-name">GitHub PR</div><div class="tf-step-sub">Merged to main</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Post-merge hook</div><div class="tf-step-sub">GitHub Actions workflow: <code style="font-size:9px">rag-update.yml</code></div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">File filter</div><div class="tf-step-sub">Changed files: README.md · *.md · DAG docstrings · code comments only</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Chunk &amp; embed</div><div class="tf-step-sub">Only files that changed in PR diff</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step" style="border-color:#5b21b6"><div class="tf-step-name" style="color:#c084fc">pgvector</div><div class="tf-step-sub">Upsert by (repo, file_path) key</div></div>
+        </div>
+        <div class="tc-detail">Non-documentation files (Python logic, configs) are not indexed — only human-readable documentation and docstrings. The GitHub Action runs as part of the existing CI pipeline. Large file changes (full rewrites) trigger a full re-chunk; small diffs trigger targeted chunk replacement using line-range comparison.</div>
+      </div>
+    </div>
+
+    <div class="trigger-card">
+      <div class="tc-hdr">
+        <span style="color:#c084fc;font-size:15px">③</span>
+        <span>Investigation completes — RCA report auto-indexed</span>
+        <span class="pill" style="background:#160a24;color:#c084fc;border:1px solid #5b21b6;margin-left:auto">Automatic</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-flow">
+          <div class="tf-step" style="border-color:#1e3a5f"><div class="tf-step-name" style="color:#5b8ff9">RCA complete</div><div class="tf-step-sub">confidence ≥ 0.85 → structured RCA generated</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Serialise</div><div class="tf-step-sub">RCA → structured markdown: entity, root_cause, evidence_chain, resolution</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Tag metadata</div><div class="tf-step-sub">entity_name, alert_class, service, date, resolution_type</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Embed</div><div class="tf-step-sub">Single chunk per RCA (usually 400–600 tokens)</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step" style="border-color:#5b21b6"><div class="tf-step-name" style="color:#c084fc">pgvector</div><div class="tf-step-sub">INSERT with investigation_id as unique key</div></div>
+        </div>
+        <div class="tc-detail">This is the highest-value update path. After every real incident resolved by the system, the solution becomes searchable for future investigations. Query: <code>"bulkFHIR-processor oom kafka batch"</code> → returns past RCA: <em>"root cause: BATCH_SIZE=5000, fix: reduce to 500 + chunked processing"</em>. The system learns from every incident it resolves.</div>
+      </div>
+    </div>
+
+    <div class="trigger-card">
+      <div class="tc-hdr">
+        <span style="color:#2dd4bf;font-size:15px">④</span>
+        <span>Weekly scheduled full re-index — safety net</span>
+        <span class="pill" style="background:#071c1c;color:#2dd4bf;border:1px solid #0d4040;margin-left:auto">Weekly</span>
+      </div>
+      <div class="tc-body">
+        <div class="tc-flow">
+          <div class="tf-step"><div class="tf-step-name">Cron job</div><div class="tf-step-sub">Sunday 02:00 UTC</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Crawl all sources</div><div class="tf-step-sub">Confluence spaces · GitHub docs · completed RCAs</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Hash comparison</div><div class="tf-step-sub">Compare content hash vs stored hash per chunk</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step"><div class="tf-step-name">Re-embed changed only</div><div class="tf-step-sub">Unchanged chunks skipped — cost-efficient</div></div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step" style="border-color:#5b21b6"><div class="tf-step-name" style="color:#c084fc">pgvector</div><div class="tf-step-sub">Upsert all, delete orphaned chunks</div></div>
+        </div>
+        <div class="tc-detail">Catches anything missed by event-driven triggers — deleted pages, renamed files, Confluence pages edited without webhook firing. Also cleans up orphaned chunks from deleted documents. Typical run time: 5–15 minutes depending on corpus size. Runs during off-peak hours to avoid embedding API rate limits.</div>
+      </div>
+    </div>
+
+    <!-- Chunk freshness schema -->
+    <h2 style="margin-bottom:12px;margin-top:20px">Chunk Freshness — What's Stored Per Chunk in pgvector</h2>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px">
+      <div class="fresh-row">
+        <div class="fresh-field">chunk_id</div>
+        <div class="fresh-desc">UUID. Primary key. Used to identify a chunk for deletion/update.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">source_type</div>
+        <div class="fresh-desc"><code style="font-family:monospace;font-size:11px;color:#aaa">confluence | github_readme | rca_report | monitoring_runbook</code> — used to filter retrieval by source category if needed.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">source_id</div>
+        <div class="fresh-desc">Confluence page_id, GitHub file path, or investigation_id. Groups all chunks belonging to the same source document.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">content_hash</div>
+        <div class="fresh-desc">SHA-256 of chunk text. Compared at re-index time — if unchanged, skip re-embedding. Saves ~80% of embedding API calls on weekly runs.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">indexed_at</div>
+        <div class="fresh-desc">Timestamp of last embedding. Used in retrieval to optionally deprioritise very old chunks if a newer RCA exists on the same topic.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">source_updated_at</div>
+        <div class="fresh-desc">Last-modified time of the source document. If <code>source_updated_at &gt; indexed_at</code>, the chunk is flagged as potentially stale and gets lower retrieval weight.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">entity_tags</div>
+        <div class="fresh-desc">Array of entity names this chunk is relevant to: <code>["dp-service", "bulkFHIR-processor", "hl7message"]</code>. Enables targeted pre-filtering before cosine search to reduce search space.</div>
+      </div>
+      <div class="fresh-row">
+        <div class="fresh-field">embedding</div>
+        <div class="fresh-desc">1536-dim vector (text-embedding-3-small). Indexed with HNSW for fast approximate nearest-neighbour search at query time.</div>
+      </div>
+    </div>
+
+    <!-- Manual re-index -->
+    <div class="note-box">
+      <strong>Manual re-index</strong> — available via REST endpoint and CLI for on-demand updates:<br>
+      <code style="font-family:monospace;font-size:11px;color:#aaa">POST /rag/reindex?source=confluence&amp;page_id=12345</code> — re-index a single Confluence page immediately<br>
+      <code style="font-family:monospace;font-size:11px;color:#aaa">POST /rag/reindex?source=rca&amp;investigation_id=inv-2026-04-20-3829</code> — force re-index a specific RCA<br>
+      <code style="font-family:monospace;font-size:11px;color:#aaa">python manage.py rag reindex --all --dry-run</code> — preview what would change without writing<br><br>
+      <strong>Stale chunk detection</strong> — retrieval response includes a <code>freshness_warning: true</code> flag on any chunk where <code>source_updated_at &gt; indexed_at</code>. The controller logs this and triggers a background re-index job for that source automatically.
+    </div>
+
+  </div><!-- /tab-rag -->
+
+  <hr class="divider"/>
+  <div style="text-align:center;padding-bottom:28px">
+    <div style="margin-bottom:6px">
+      <span style="color:#555;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase">Architect</span>
+      <span style="color:#5b8ff9;font-weight:700;font-size:13px;margin-left:7px">Chandrika Prasad</span>
+    </div>
+    <div style="font-size:11px;color:#444">
+      <span style="color:#c084fc;font-weight:700">Infinity-Sentinel</span>
+      <span style="color:#555;font-style:italic;margin-left:6px">(Agentic AI Troubleshooter)</span>
+      <span style="color:#333;margin:0 10px">·</span>
+      <span style="color:#555">Combines IncidentFox multi-agent model + HolmesGPT MCP-native tooling + custom metadata routing</span>
+    </div>
+  </div>
+
+</div>
+<script>
+  function showTab(id, el) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>

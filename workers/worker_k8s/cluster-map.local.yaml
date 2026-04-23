@@ -1,0 +1,13 @@
+# Default multi-cluster map for local / laptop use.
+# Paths are expanded (~/.kube/config). Empty context = use current-context from that file.
+#
+# Enable with WORKER_K8S_CLUSTER_MAP_PATH=cluster-map.local.yaml (relative paths resolve
+# from the workers/worker_k8s/ directory).
+
+clusters:
+  local:
+    kubeconfig: ~/.kube/config
+    context: ""
+  docker-desktop:
+    kubeconfig: ~/.kube/config
+    context: ""

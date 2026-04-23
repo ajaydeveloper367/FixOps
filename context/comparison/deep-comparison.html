@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Deep Comparison — HolmesGPT vs IncidentFox (Source Code)</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0f0f0f;--surface:#181818;--elevated:#1f1f1f;--border:#2a2a2a;
+      --text:#e8e8e8;--muted:#888;--muted2:#555;
+      --accent:#5b8ff9;--warn:#d97706;--warn-bg:#2d1f00;--warn-border:#78350f;
+      --green:#4ade80;--green-bg:#0d2d1a;--green-border:#16532e;
+      --red:#f87171;--red-bg:#2d0d0d;--red-border:#7f1d1d;
+      --yellow:#f59e0b;--yellow-bg:#2d2200;--yellow-border:#78350f;
+      --blue:#60a5fa;--blue-bg:#0d1a2d;--blue-border:#1e3a5f;
+      --gray:#666;--gray-bg:#1a1a1a;--gray-border:#333;
+    }
+    body{background:var(--bg);color:var(--text);padding:40px 24px 80px;line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif}
+    .container{max-width:1060px;margin:0 auto}
+    h1{font-size:22px;font-weight:700;margin-bottom:6px}
+    h2{font-size:16px;font-weight:600;margin:0 0 14px}
+    h3{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px}
+    .subtitle{color:var(--muted);font-size:13px;margin-bottom:32px}
+    .divider{border:none;border-top:1px solid var(--border);margin:32px 0}
+    .source-note{font-size:11px;color:var(--muted2);margin-top:-10px;margin-bottom:16px;font-style:italic}
+
+    /* Pills */
+    .pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+    .pill.full  {background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+    .pill.yes   {background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+    .pill.partial{background:var(--yellow-bg);color:var(--yellow);border:1px solid var(--yellow-border)}
+    .pill.draft {background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)}
+    .pill.no    {background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+    .pill.req   {background:#1a1a1a;color:#aaa;border:1px solid #333}
+
+    /* Integration table */
+    .int-table{width:100%;border-collapse:collapse;font-size:12.5px}
+    .int-table thead th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface)}
+    .int-table tbody tr{border-bottom:1px solid var(--border)}
+    .int-table tbody tr:last-child{border-bottom:none}
+    .int-table tbody tr:hover{background:#141414}
+    .int-table td{padding:10px 12px;vertical-align:top}
+    .int-name{font-weight:600;color:var(--text);white-space:nowrap}
+    .int-cell{display:flex;flex-direction:column;gap:4px}
+    .int-note{font-size:11px;color:var(--muted);line-height:1.5}
+    .int-file{font-size:10px;color:var(--muted2);font-family:monospace}
+
+    /* Side-by-side cards */
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+    .card-header{padding:10px 14px;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .card-body{padding:14px;font-size:12.5px}
+
+    /* Fact list */
+    .fact-list{display:flex;flex-direction:column;gap:8px}
+    .fact{display:flex;gap:8px;align-items:flex-start}
+    .fact .marker{flex-shrink:0;margin-top:2px;font-size:12px;color:var(--muted2)}
+    .fact.plus .marker{color:var(--green)}
+    .fact.minus .marker{color:var(--red)}
+    .fact.warn .marker{color:var(--yellow)}
+    .fact .body{font-size:12.5px;line-height:1.5;color:var(--muted)}
+    .fact .body strong{color:var(--text);font-weight:600}
+
+    /* Comparison block */
+    .cmp-table{width:100%;border-collapse:collapse;font-size:12.5px}
+    .cmp-table thead th{text-align:left;padding:8px 12px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface)}
+    .cmp-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+    .cmp-table tr:last-child td{border-bottom:none}
+    .cmp-table tr:hover td{background:#141414}
+    .dim{font-size:11px;color:var(--muted)}
+    .col-aspect{font-weight:600;width:180px}
+
+    /* Gap cards */
+    .gap-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .gap-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:14px}
+    .gap-card h4{font-size:12px;font-weight:600;margin-bottom:6px;color:var(--red)}
+    .gap-card p{font-size:12px;color:var(--muted);line-height:1.6}
+
+    /* Summary rows */
+    .summary-row{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)}
+    .summary-row:last-child{border-bottom:none}
+    .summary-body{font-size:13px;line-height:1.6;color:var(--muted)}
+    .summary-body strong{color:var(--text)}
+
+    @media(max-width:700px){.grid-2,.gap-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Deep Integration Comparison</h1>
+  <p class="subtitle">Based on actual source code — not documentation or README claims. Both projects cloned and inspected.</p>
+
+  <!-- ── INTEGRATION COVERAGE ── -->
+  <h2>Integration Coverage</h2>
+  <p class="source-note">HolmesGPT: holmes/plugins/toolsets/ &nbsp;·&nbsp; IncidentFox: sre-agent/.claude/skills/ + credential-proxy/</p>
+
+  <table class="int-table">
+    <thead>
+      <tr>
+        <th style="width:130px">Integration</th>
+        <th style="width:30px">Your need</th>
+        <th>HolmesGPT</th>
+        <th>IncidentFox</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- Loki -->
+      <tr>
+        <td class="int-name">Loki</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>grafana/loki</code> toolset. Runs LogQL queries, supports both Grafana proxy and direct Loki API. Default log limit enforced (<code>DEFAULT_LOG_LIMIT</code>). Requires pod wildcard patterns in queries.</span>
+            <span class="int-file">holmes/plugins/toolsets/grafana/loki/toolset_grafana_loki.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>observability-loki</code> skill. LogQL, label queries, stats-first workflow. Credentials injected via Envoy proxy (not in prompt). Custom host URLs supported.</span>
+            <span class="int-file">sre-agent/.claude/skills/observability-loki/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Prometheus -->
+      <tr>
+        <td class="int-name">Prometheus</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>prometheus/metrics</code> toolset. PromQL queries, rules. Can be disabled via <code>DISABLE_PROMETHEUS_TOOLSET</code> env flag.</span>
+            <span class="int-file">holmes/plugins/toolsets/prometheus/prometheus.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>metrics-analysis</code> skill (PromQL + Grafana dashboards + alerts). Credential proxy has Prometheus URL env block. Often combined with Grafana in one workflow.</span>
+            <span class="int-file">sre-agent/.claude/skills/metrics-analysis/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Kubernetes / EKS -->
+      <tr>
+        <td class="int-name">Kubernetes / EKS</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Multiple native toolsets: <code>kubernetes/core</code>, <code>kubernetes/logs</code>, <code>kubernetes/live-metrics</code>, ArgoCD, Helm, OpenShift, Cilium/Hubble, Inspektor Gadget. Direct kubeconfig or in-cluster. EKS = standard K8s via kubeconfig + AWS MCP for AWS APIs.</span>
+            <span class="int-file">holmes/plugins/toolsets/kubernetes.yaml, kubernetes_logs.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (via gateway)</span>
+            <span class="int-note"><code>infrastructure-kubernetes</code> skill uses <code>--cluster-id</code> flag through an internal gateway. No raw kubectl in sandbox. Requires <strong>k8s-agent + gateway</strong> deployed per cluster. In-cluster executor handles list_pods, get_pod_logs, describe_pod, restart etc.</span>
+            <span class="int-file">sre-agent/.claude/skills/infrastructure-kubernetes/, k8s_agent/src/k8s_agent/executor.py</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Kafka -->
+      <tr>
+        <td class="int-name">Kafka</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (admin/inspect)</span>
+            <span class="int-note">Native <code>kafka/admin</code> toolset using <code>confluent-kafka</code>. Lists topics, consumers, consumer lag, topic configs, cluster overview. Can consume messages up to <code>MAX_MESSAGES_CAP=1000</code>. Multi-cluster via config. <strong>No produce capability.</strong></span>
+            <span class="int-file">holmes/plugins/toolsets/kafka.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (admin/inspect)</span>
+            <span class="int-note">Native <code>streaming-kafka</code> skill. Broker info, topic listing, consumer group lag inspection via scripts. Admin-style only — no full producer/consumer client library. Credentials via proxy.</span>
+            <span class="int-file">sre-agent/.claude/skills/streaming-kafka/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Airflow -->
+      <tr>
+        <td class="int-name">Airflow</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill no">Not present</span>
+            <span class="int-note">No toolset found anywhere in codebase. "Workflow Orchestration" category exists in docs but no Airflow class in Python toolset registry. <strong>Prefect MCP</strong> is listed in datasource-catalog for a different orchestrator.</span>
+            <span class="int-file">datasource-catalog.json (Prefect only, not Airflow)</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill draft">UI mock only</span>
+            <span class="int-note">No <code>airflow</code> skill in the 45 skills under <code>sre-agent/.claude/skills/</code>. Airflow appears only in <code>web_ui/src/context/AppContext.tsx</code> as a demo/mock tool prompt — <strong>not a real backend integration</strong>. Treat as roadmap.</span>
+            <span class="int-file">web_ui/src/context/AppContext.tsx (demo only)</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- MongoDB -->
+      <tr>
+        <td class="int-name">MongoDB</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes — two paths</span>
+            <span class="int-note">
+              <strong>Path 1 (wire protocol):</strong> Native <code>mongodb</code> toolset — find, aggregate, list collections, index stats. Read-only enforced: blocks <code>$out</code>, <code>$merge</code>, write ops.<br/>
+              <strong>Path 2 (Atlas REST API):</strong> <code>MongoDBAtlas</code> toolset — slow queries, process metrics, alerts, logs via Atlas REST. <strong>Different from wire protocol</strong> — only for Atlas-managed clusters.
+            </span>
+            <span class="int-file">holmes/plugins/toolsets/mongodb/mongodb.py + atlas_mongodb/mongodb_atlas.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill no">Not present</span>
+            <span class="int-note">No <code>database-mongo*</code> skill in the 45 agent skills. MongoDB mentioned in RAG/docs (<code>docs/FEATURES.md</code>, <code>ultimate_rag/</code>) as a generic supported storage backend — <strong>not an investigation tool skill</strong>. Cannot query Mongo collections for RCA.</span>
+            <span class="int-file">sre-agent/.claude/skills/ — no mongo entry</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Tempo -->
+      <tr>
+        <td class="int-name">Tempo / Tracing</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (Tempo via Grafana)</span>
+            <span class="int-note">Native <code>grafana/tempo</code> toolset — TraceQL queries via Grafana Tempo API. Requires <code>GrafanaTempoConfig</code> with <code>grafana_datasource_uid</code>. <strong>Zipkin: not present.</strong> Jaeger: not found in Python toolsets.</span>
+            <span class="int-file">holmes/plugins/toolsets/grafana/toolset_grafana_tempo.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (Jaeger only)</span>
+            <span class="int-note">Native <code>observability-jaeger</code> skill. Jaeger trace search, service stats, dependency graphs. <strong>No Tempo or Zipkin skill.</strong> Jaeger's API is different from Grafana Tempo — if you use Tempo you'd need a new skill.</span>
+            <span class="int-file">sre-agent/.claude/skills/observability-jaeger/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- RDS / Postgres -->
+      <tr>
+        <td class="int-name">RDS / Postgres</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (read-only)</span>
+            <span class="int-note">Native <code>database/sql</code> toolset via SQLAlchemy — supports PostgreSQL URLs including AWS RDS. Read-only default: write patterns blocked. <code>max_rows</code> cap enforced. Datadog RDS instruction files exist but <strong>no Python tool implementation</strong> — likely abandoned.</span>
+            <span class="int-file">holmes/plugins/toolsets/database/database.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (PostgreSQL, diagnostic)</span>
+            <span class="int-note">Native <code>database-postgresql</code> skill — long-running queries, locks, replication lag, connection stats. Diagnostic/read-oriented. No dedicated RDS skill — works if network + credentials allow connectivity. Credential proxy handles <code>POSTGRES_*</code> env.</span>
+            <span class="int-file">sre-agent/.claude/skills/database-postgresql/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- GitHub -->
+      <tr>
+        <td class="int-name">GitHub / GitLab</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">GitHub MCP only</span>
+            <span class="int-note">GitHub integration is <strong>MCP server only</strong> — documented and Helm-configured but not a Python class in the native toolset registry. GitLab: not found. Useful for code/deploy history, but requires external MCP server deployment.</span>
+            <span class="int-file">datasource-catalog.json (github-mcp), docs/data-sources/builtin-toolsets/github-mcp.md</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Deep GitHub integration: credential proxy (GitHub App token), AI pipeline GitHub scanner (ops files, service maps, CI signals), orchestrator webhooks (PR context, deployment events). GitLab: native <code>vcs-gitlab</code> skill (repos, MRs, pipelines).</span>
+            <span class="int-file">credential-proxy/main.py, ai_pipeline/github_scanner.py, orchestrator/context_enrichment.py</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Confluence -->
+      <tr>
+        <td class="int-name">Confluence</td>
+        <td><span class="pill req">Required</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full (native + MCP)</span>
+            <span class="int-note">Native Python <code>confluence</code> toolset — Confluence REST search. Also optional Confluence MCP in catalog. Used to fetch runbooks and docs during investigation.</span>
+            <span class="int-file">holmes/plugins/toolsets/confluence/confluence.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill yes">Yes (Cloud REST)</span>
+            <span class="int-note">Credential proxy handles Confluence auth (<code>atlassian.net</code> domain mapping). AI pipeline has a <code>confluence_scanner.py</code> for ops-oriented page ingestion (<code>MAX_CONTENT_SIZE=200_000</code>). <strong>Confluence Cloud REST only</strong> — Data Center/Server API differences not handled.</span>
+            <span class="int-file">ai_pipeline/tasks/scanners/confluence_scanner.py, credential-proxy/domain_mapping.py</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Datadog -->
+      <tr>
+        <td class="int-name">Datadog</td>
+        <td><span class="pill req">Optional</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native: <code>datadog/logs</code>, <code>datadog/metrics</code>, <code>datadog/traces</code> + generic API. Logs note: only first storage tier fully supported (multi-tier TODO in code).</span>
+            <span class="int-file">holmes/plugins/toolsets/datadog/</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>observability-datadog</code> skill. Credential proxy Datadog block. Logs, metrics, APM all supported via skill scripts.</span>
+            <span class="int-file">sre-agent/.claude/skills/observability-datadog/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Elasticsearch -->
+      <tr>
+        <td class="int-name">Elasticsearch</td>
+        <td><span class="pill req">Optional</span></td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>elasticsearch/data</code> (index search, mappings) and <code>elasticsearch/cluster</code> (health, allocation, nodes). OpenSearch query assist exists but marked <code>experimental=True</code>.</span>
+            <span class="int-file">holmes/plugins/toolsets/elasticsearch/elasticsearch.py</span>
+          </div>
+        </td>
+        <td>
+          <div class="int-cell">
+            <span class="pill full">Full</span>
+            <span class="int-note">Native <code>observability-elasticsearch</code> skill.</span>
+            <span class="int-file">sre-agent/.claude/skills/observability-elasticsearch/SKILL.md</span>
+          </div>
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <hr class="divider"/>
+
+  <!-- ── CONTROLLER DECISION MAKING ── -->
+  <h2>Controller Decision Making</h2>
+  <p class="source-note">How each system decides what to check, in what order, and which tool to call.</p>
+
+  <table class="cmp-table">
+    <thead>
+      <tr>
+        <th class="col-aspect">Aspect</th>
+        <th>HolmesGPT</th>
+        <th>IncidentFox</th>
+        <th>Your Requirement</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-aspect">Routing engine</td>
+        <td><span class="pill no">LLM decides everything</span><br/><span class="dim">Single <code>ToolCallingLLM</code> agent. LLM picks tools with <code>tool_choice="auto"</code>. No routing layer. No orchestrator. The same model that reasons also decides which tool to call next.</span></td>
+        <td><span class="pill yes">Config-driven at top level</span><br/><span class="dim">Orchestrator routes Slack channel → org/team via Config Service lookup. <code>entrance_agent</code> default is "planner". <strong>Within the session</strong>, Claude (LLM) decides tool/skill use and subagent delegation.</span></td>
+        <td><span class="dim">Rules-first: LLM extracts entities only. Rules decide which worker to call based on entity type + inventory lookup.</span></td>
+      </tr>
+      <tr>
+        <td class="col-aspect">Worker / specialist separation</td>
+        <td><span class="pill no">None</span><br/><span class="dim">One agent class. Parallelism is per-turn tool batching via <code>ThreadPoolExecutor(max_workers=16)</code>. No specialist workers.</span></td>
+        <td><span class="pill yes">Config-defined subagents</span><br/><span class="dim">Subagents named in team config (investigator, planner, log-analyst, k8s-debugger, remediator etc.). Root agent = investigator &gt; planner &gt; first enabled. <strong>Not hard-coded in source</strong> — whatever is in team config.</span></td>
+        <td><span class="dim">Fixed specialist workers: K8s, Pipeline, App RCA, DB, Obs, Executor. Defined in code, not config.</span></td>
+      </tr>
+      <tr>
+        <td class="col-aspect">Tool gating / safeguards</td>
+        <td><span class="pill yes">Rule-based gating</span><br/><span class="dim">Toolset tags (CORE, CLI, CLUSTER) filter what's available. Restricted tools hidden unless a runbook is fetched. Anti-repetition guard (<code>prevent_overly_repeated_tool_call</code>). Max steps cap.</span></td>
+        <td><span class="pill yes">Policy-based</span><br/><span class="dim">Org/team policies in admin UI (toggle require-approval for prompts/tools). <code>AskUserQuestion</code> waits up to 60s. Other tools <strong>auto-approved</strong> inside session. Remediation actions gated via config-service approval API.</span></td>
+        <td><span class="dim">Hard read-only default. Approval gate is mandatory before any write. No auto-approval of any mutation tool.</span></td>
+      </tr>
+      <tr>
+        <td class="col-aspect">Context / token budget</td>
+        <td><span class="pill yes">Per-tool memory limits</span><br/><span class="dim">Per-tool output budgeting, streaming to disk, automatic output size limiting. No explicit "stage 1/2/3" loading model — just per-call limits.</span></td>
+        <td><span class="pill partial">Smart log sampling</span><br/><span class="dim">Stats-first then targeted sampling approach per skill docs (e.g. Loki skill: count/labels first, then sample). No enforced cross-stage budget controller. Depends on skill instructions.</span></td>
+        <td><span class="dim">Explicit 3-stage loading: Stage 1 (cheap facts) → Stage 2 (targeted diagnostics) → Stage 3 (deep: code, traces, docs). Hard token budget per stage enforced by controller.</span></td>
+      </tr>
+      <tr>
+        <td class="col-aspect">Entity resolution</td>
+        <td><span class="pill no">None</span><br/><span class="dim">No inventory or dependency graph. LLM infers from alert text what to look at. No structured entity-to-tool mapping.</span></td>
+        <td><span class="pill partial">Auto topology discovery</span><br/><span class="dim">Dependency mapping runs automatically (service topology, blast radius). Not a queryable inventory schema. LLM uses discovered topology in reasoning.</span></td>
+        <td><span class="dim">Two layers: Inventory (routing metadata) + Dataflow Graph (ownership). Controller queries both deterministically before selecting worker.</span></td>
+      </tr>
+      <tr>
+        <td class="col-aspect">Confidence / stop logic</td>
+        <td><span class="pill partial">Max steps only</span><br/><span class="dim">Stops when max_steps reached or LLM decides it has enough. No explicit confidence scoring returned.</span></td>
+        <td><span class="pill no">Not present</span><br/><span class="dim">No confidence score in worker output. Investigation ends when Claude's session concludes. No structured "stop if confidence &gt; threshold" rule.</span></td>
+        <td><span class="dim">Workers must return confidence score. Controller stops when confidence threshold met. Prevents over-investigation.</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider"/>
+
+  <!-- ── APPROVAL & EXECUTION ── -->
+  <h2>Approval Gate &amp; Execution</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">HolmesGPT <span class="pill no">Weak gate</span></div>
+      <div class="card-body">
+        <div class="fact-list">
+          <div class="fact minus"><span class="marker">–</span><div class="body">No approval gate for most actions. Bash tool has an approval path, but it's optional/configurable — not enforced by default.</div></div>
+          <div class="fact minus"><span class="marker">–</span><div class="body">No Executor worker separation. The same agent that investigates also runs actions.</div></div>
+          <div class="fact warn"><span class="marker">~</span><div class="body">Bash approval workflow exists in <code>bash/bash_toolset.py</code> but is not a hard gate — can be bypassed via config.</div></div>
+          <div class="fact plus"><span class="marker">+</span><div class="body"><code>kubectl-run</code> toolset provides safe kubectl execution with some guardrails.</div></div>
+          <div class="fact minus"><span class="marker">–</span><div class="body">No post-action verification loop. No confirm-then-verify pattern built in.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">IncidentFox <span class="pill yes">Strong for remediations</span></div>
+      <div class="card-body">
+        <div class="fact-list">
+          <div class="fact plus"><span class="marker">+</span><div class="body"><strong>Config-service approval API</strong>: agents propose → admin approves/rejects → background execution. Hard gate for K8s remediations.</div></div>
+          <div class="fact plus"><span class="marker">+</span><div class="body">Approved actions: <code>restart_pod</code>, <code>restart_deployment</code>, <code>scale_deployment</code>, <code>rollback_deployment</code>, <code>delete_pod</code>. Rollback actions partially automated.</div></div>
+          <div class="fact warn"><span class="marker">~</span><div class="body">Inside the live agent session: non-<code>AskUserQuestion</code> tools are <strong>auto-approved</strong>. Strong gate is for config-service remediations only, not every tool call.</div></div>
+          <div class="fact warn"><span class="marker">~</span><div class="body">Remediation skill text says dry-run first, confirm, execute — but this is skill instructions, not enforced at code level.</div></div>
+          <div class="fact minus"><span class="marker">–</span><div class="body">No post-action verification built into the agent loop. Human must observe recovery.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ── WORKER ARCHITECTURE ── -->
+  <h2>Worker / Agent Architecture</h2>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">HolmesGPT</div>
+      <div class="card-body">
+        <div class="fact-list">
+          <div class="fact minus"><span class="marker">–</span><div class="body"><strong>Single agent class</strong> (<code>ToolCallingLLM</code>). No specialist workers. No controller layer.</div></div>
+          <div class="fact plus"><span class="marker">+</span><div class="body"><strong>Core Investigation toolset</strong> exposes <code>TodoWrite</code> — LLM creates an internal task list and executes steps sequentially. Closest thing to structured investigation planning.</div></div>
+          <div class="fact plus"><span class="marker">+</span><div class="body">Parallel tool execution per turn via <code>ThreadPoolExecutor(max_workers=16)</code>.</div></div>
+          <div class="fact minus"><span class="marker">–</span><div class="body">No way to add a "Pipeline Worker" or "DB Worker" as a separate specialist — you'd have to redesign the core loop.</div></div>
+          <div class="fact warn"><span class="marker">~</span><div class="body">MCP servers can add new tool surfaces, which is the recommended extensibility path — but still one LLM agent using all of them.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">IncidentFox</div>
+      <div class="card-body">
+        <div class="fact-list">
+          <div class="fact plus"><span class="marker">+</span><div class="body"><strong>Subagents from config</strong>: team config defines named agents (investigator, planner, log-analyst, k8s-debugger, remediator). Root agent delegates to subagents via Claude SDK.</div></div>
+          <div class="fact warn"><span class="marker">~</span><div class="body">Subagent names/prompts come from config, not hard-coded — flexible but no built-in "Pipeline Worker" or "Kafka Worker". You'd add them in team config.</div></div>
+          <div class="fact warn"><span class="marker">~</span><div class="body"><code>entrance_agent</code> set by orchestrator is <strong>not forwarded</strong> to the sre-agent's <code>/investigate</code> endpoint — known gap in the codebase.</div></div>
+          <div class="fact plus"><span class="marker">+</span><div class="body">K8s agent is a separate service running in-cluster — true worker separation for K8s operations.</div></div>
+          <div class="fact minus"><span class="marker">–</span><div class="body">No structured output contract from workers — Claude's session ends with a narrative, not a JSON schema with findings/confidence/evidence_refs.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ── GAPS FOR YOUR SYSTEM ── -->
+  <h2>Gaps that remain — specific to your requirements</h2>
+  <p class="source-note">Things neither project has today, even after reading the full source code.</p>
+
+  <div class="gap-grid">
+    <div class="gap-card">
+      <h4>Airflow integration — both missing</h4>
+      <p>HolmesGPT has no Airflow toolset (Prefect MCP exists). IncidentFox has it only as a UI demo mock — no backend skill, no DAG API integration. You need to build this as a new MCP adapter (HolmesGPT path) or a new skill (IncidentFox path).</p>
+    </div>
+    <div class="gap-card">
+      <h4>MongoDB investigation — IncidentFox gap</h4>
+      <p>HolmesGPT has two native Mongo paths (wire protocol + Atlas). IncidentFox has neither — MongoDB is only mentioned in their RAG/docs layer. If you pick IncidentFox, Mongo inspection needs a new skill built from scratch.</p>
+    </div>
+    <div class="gap-card">
+      <h4>Two-layer metadata model — both missing</h4>
+      <p>Neither has your Inventory (routing metadata) + Dataflow Graph (ownership resolution) model. HolmesGPT has no topology layer at all. IncidentFox has auto-topology discovery but it's not a queryable structured schema that the controller can use for deterministic routing.</p>
+    </div>
+    <div class="gap-card">
+      <h4>Rules-first routing — both rely on LLM</h4>
+      <p>HolmesGPT: single LLM picks all tools. IncidentFox: config-driven at top level but LLM decides subagent + tool selection inside session. Your "LLM extracts entities only, rules decide worker" principle needs a custom routing layer in both cases.</p>
+    </div>
+    <div class="gap-card">
+      <h4>Confidence scoring + structured output contract</h4>
+      <p>Neither worker returns a JSON schema with findings, evidence_refs, confidence, ruled_out, next_suggested_check. Both return narrative prose. Your controller's stop-on-high-confidence logic requires this to be built as a wrapper around workers in either project.</p>
+    </div>
+    <div class="gap-card">
+      <h4>Staged context loading (3-stage budget)</h4>
+      <p>HolmesGPT has per-tool memory limits. IncidentFox has stats-first sampling per skill. Neither enforces your Stage 1 → Stage 2 → Stage 3 budget with hard token limits across the investigation as a whole.</p>
+    </div>
+    <div class="gap-card">
+      <h4>Post-action verification loop</h4>
+      <p>Neither has a built-in "execute → wait → verify recovery" loop. HolmesGPT has no approval gate. IncidentFox approves and executes but stops there — no automated confirmation that failures dropped or backlog cleared.</p>
+    </div>
+    <div class="gap-card">
+      <h4>Scale strategy: DAG graph auto-extraction</h4>
+      <p>Neither has tooling to auto-derive a dependency graph from DAG Python code + app configs + Helm values at your scale. HolmesGPT's GitHub MCP can read repos but won't build a structured graph. This is your original piece regardless of which base you use.</p>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- ── REVISED RECOMMENDATION ── -->
+  <h2>Revised recommendation (after reading source code)</h2>
+  <div style="display:flex;flex-direction:column;gap:0">
+    <div class="summary-row">
+      <span class="pill yes" style="margin-top:3px;flex-shrink:0">IncidentFox base</span>
+      <p class="summary-body"><strong>Still the closer architectural fit.</strong> Multi-agent config, Slack-first, strong GitHub/Confluence integration, real K8s gate via k8s_agent, Loki + Prometheus + Kafka all present. <strong>Main gaps to fill:</strong> Airflow skill (new), Mongo skill (new), Tempo→Jaeger migration or Tempo skill, rules-first routing wrapper, confidence score output contract.</p>
+    </div>
+    <div class="summary-row">
+      <span class="pill yes" style="margin-top:3px;flex-shrink:0">HolmesGPT for tools</span>
+      <p class="summary-body"><strong>Better as a toolset/adapter reference.</strong> Its native Mongo wire protocol, Loki, Tempo (Grafana), Kafka, Confluence, and Prometheus toolsets are clean and production-grade. Consider porting these tool implementations as MCP adapters if building on IncidentFox's framework. The single-agent architecture is not worth adopting.</p>
+    </div>
+    <div class="summary-row">
+      <span class="pill no" style="margin-top:3px;flex-shrink:0">Key clarification</span>
+      <p class="summary-body">The earlier statement "neither has Kafka" was <strong>wrong</strong> — both have Kafka admin/inspection. The real gaps are: <strong>Airflow (both), MongoDB investigation in IncidentFox, and all the architectural layers (routing engine, metadata model, confidence scoring, staged context)</strong>. Those are yours to build regardless.</p>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+  <p style="font-size:11px;color:#333;text-align:center">Generated Apr 20, 2026 · Source code read from local clones · HolmesGPT: holmes/plugins/toolsets/ · IncidentFox: sre-agent/.claude/skills/ + orchestrator/ + k8s_agent/</p>
+
+</div>
+</body>
+</html>

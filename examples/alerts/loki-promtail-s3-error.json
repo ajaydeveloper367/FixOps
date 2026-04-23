@@ -1,0 +1,11 @@
+{
+  "title": "Promtail cannot access S3",
+  "message": "Error on loki-promtail-qtj27 logs: can't access S3 bucket abcd-s3 in monitoring namespace on local cluster",
+  "entity_type": "pod",
+  "name": "loki-promtail-qtj27",
+  "namespace": "monitoring",
+  "cluster_id": "local",
+  "extra": {
+    "container": "promtail"
+  }
+}

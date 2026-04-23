@@ -1,0 +1,13 @@
+{
+  "contract_version": "1",
+  "alert": {
+    "title": "Example",
+    "message": "Run after editing alert fields",
+    "entity_type": "pod",
+    "name": "REPLACE_WITH_POD_NAME",
+    "namespace": "REPLACE_WITH_NAMESPACE",
+    "cluster_id": "local"
+  },
+  "stage": 1,
+  "hints": {}
+}

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Comparison — HolmesGPT vs IncidentFox</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #181818;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #888;
+      --accent: #5b8ff9;
+      --success-bg: #0d2d1a;
+      --success-text: #4ade80;
+      --success-border: #16532e;
+      --warning-bg: #2d1f00;
+      --warning-text: #f59e0b;
+      --warning-border: #78350f;
+      --danger-bg: #2d0d0d;
+      --danger-text: #f87171;
+      --danger-border: #7f1d1d;
+      --neutral-bg: #1e1e1e;
+      --neutral-text: #aaa;
+      --neutral-border: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 24px 80px;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    h1 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    h2 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+    h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .stack { display: flex; flex-direction: column; }
+    .row { display: flex; flex-direction: row; gap: 8px; align-items: flex-start; }
+
+    /* Stat */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+    .stat-value { font-size: 24px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .stat.success .stat-value { color: var(--success-text); }
+    .stat.warning .stat-value { color: var(--warning-text); }
+    .stat.danger .stat-value { color: var(--danger-text); }
+
+    /* Pill */
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .pill.success { background: var(--success-bg); color: var(--success-text); border: 1px solid var(--success-border); }
+    .pill.warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
+    .pill.danger  { background: var(--danger-bg);  color: var(--danger-text);  border: 1px solid var(--danger-border); }
+    .pill.neutral { background: var(--neutral-bg); color: var(--neutral-text); border: 1px solid var(--neutral-border); }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 9px 12px; vertical-align: top; color: var(--text); }
+    tbody tr:hover { background: #1d1d1d; }
+    .td-req { font-weight: 500; min-width: 220px; }
+    .td-notes { color: var(--muted); font-size: 12px; }
+
+    /* Card */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .card-header { padding: 10px 14px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); }
+    .card-body { padding: 12px 14px; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+    /* Lists */
+    .check-list { display: flex; flex-direction: column; gap: 7px; }
+    .check-item { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+    .check-item .marker { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+    .check-item.plus .marker { color: var(--success-text); }
+    .check-item.minus .marker { color: var(--danger-text); }
+
+    /* Project header cards */
+    .project-card { padding: 18px; }
+    .project-name { font-size: 18px; font-weight: 700; }
+    .project-meta { font-size: 11px; color: var(--muted); margin-top: 4px; margin-bottom: 10px; }
+    .project-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* Recommendation rows */
+    .rec-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .rec-row:last-child { border-bottom: none; }
+    .rec-body { font-size: 13px; line-height: 1.6; color: var(--muted); }
+    .rec-body strong { color: var(--text); }
+
+    /* Section label */
+    .section-note { font-size: 12px; color: var(--muted); margin-top: -6px; margin-bottom: 12px; }
+
+    /* Gaps section */
+    .gap-label { font-size: 11px; font-weight: 700; color: var(--warning-text); background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 4px; padding: 1px 6px; display: inline-block; margin-bottom: 6px; }
+
+    @media (max-width: 700px) {
+      .grid-2, .grid-4 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="stack" style="gap:6px; margin-bottom:28px;">
+    <h1>Project Comparison vs Your Requirements</h1>
+    <p class="subtitle">HolmesGPT &amp; IncidentFox — measured against the agentic ops system design in <code>agentic-ops-system.mdc</code></p>
+  </div>
+
+  <!-- Project summaries -->
+  <div class="grid-2" style="margin-bottom:28px;">
+    <div class="card">
+      <div class="project-card">
+        <div class="project-name">HolmesGPT</div>
+        <div class="project-meta">CNCF Sandbox &middot; robusta-dev &middot; 2,238 stars</div>
+        <div class="project-desc">Single agentic loop. Tool-first. Strong Kubernetes + cloud-native focus. MCP-native. No controller/worker model. Creates a task list, queries tools, correlates, explains.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="project-card">
+        <div class="project-name">IncidentFox</div>
+        <div class="project-meta">Apache 2.0 core &middot; incidentfox &middot; 560 stars</div>
+        <div class="project-desc">Multi-agent orchestration. Slack/Teams-first. Alert correlation (3-layer), auto dependency mapping, RAPTOR knowledge base, continuous learning. Closest to your architecture model.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Requirements table -->
+  <h2>Requirements Coverage</h2>
+  <p class="section-note">Green = met &nbsp;&middot;&nbsp; Yellow = partial or caveats &nbsp;&middot;&nbsp; Red = not present</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Your Requirement</th>
+          <th>HolmesGPT</th>
+          <th>IncidentFox</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-req">One controller + specialized workers</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill success">yes</span></td>
+          <td class="td-notes">HolmesGPT is a single agentic loop — no controller/worker split</td>
+        </tr>
+        <tr>
+          <td class="td-req">Tool-first execution (no free-form wandering)</td>
+          <td><span class="pill success">yes</span></td>
+          <td><span class="pill success">yes</span></td>
+          <td class="td-notes">Both are tool-first by design</td>
+        </tr>
+        <tr>
+          <td class="td-req">Staged / progressive context loading</td>
+          <td><span class="pill warning">partial</span></td>
+          <td><span class="pill warning">partial</span></td>
+          <td class="td-notes">HolmesGPT has per-tool memory limits; IncidentFox has smart log sampling. Neither enforces explicit stage gates like your 3-stage model</td>
+        </tr>
+        <tr>
+          <td class="td-req">Human approval before write actions</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill warning">paid only</span></td>
+          <td class="td-notes">HolmesGPT has no approval gate. IncidentFox approval workflows are Enterprise-tier only</td>
+        </tr>
+        <tr>
+          <td class="td-req">Pluggable adapters / MCP support</td>
+          <td><span class="pill success">yes</span></td>
+          <td><span class="pill success">yes</span></td>
+          <td class="td-notes">HolmesGPT is MCP-native (CNCF). IncidentFox has 45+ integrations</td>
+        </tr>
+        <tr>
+          <td class="td-req">Service Inventory layer (routing metadata)</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill warning">partial</span></td>
+          <td class="td-notes">Neither has an explicit structured inventory schema. IncidentFox has auto topology discovery but not a queryable inventory layer</td>
+        </tr>
+        <tr>
+          <td class="td-req">Dataflow / Dependency graph (ownership resolution)</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill warning">partial</span></td>
+          <td class="td-notes">IncidentFox has topology + blast radius. HolmesGPT has none. Neither has your two-layer Inventory + Dataflow model</td>
+        </tr>
+        <tr>
+          <td class="td-req">Deterministic routing (rules-first, LLM only for extraction)</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill danger">no</span></td>
+          <td class="td-notes">Both rely on LLM to decide routing and tool selection. Your hard guardrail is not met by either</td>
+        </tr>
+        <tr>
+          <td class="td-req">Airflow / data pipeline worker</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill danger">no</span></td>
+          <td class="td-notes">Neither has an Airflow-aware worker. Critical gap for DAG-heavy environments</td>
+        </tr>
+        <tr>
+          <td class="td-req">Kafka consumer lag / pipeline awareness</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill danger">no</span></td>
+          <td class="td-notes">Not present in either. Your Mongo → Airflow → Kafka → K8s chain has no first-class support</td>
+        </tr>
+        <tr>
+          <td class="td-req">Mongo collection ownership / status awareness</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill danger">no</span></td>
+          <td class="td-notes">Neither understands "pdata failed messages" as a data-domain entity requiring graph resolution</td>
+        </tr>
+        <tr>
+          <td class="td-req">Confidence scoring on RCA output</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill danger">no</span></td>
+          <td class="td-notes">Neither returns a structured confidence score — both return narrative summaries</td>
+        </tr>
+        <tr>
+          <td class="td-req">Worker output contract (structured findings JSON)</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill warning">partial</span></td>
+          <td class="td-notes">HolmesGPT returns prose. IncidentFox is more structured but has no explicit schema contract</td>
+        </tr>
+        <tr>
+          <td class="td-req">Scale: DAGs and collections at volume</td>
+          <td><span class="pill danger">no</span></td>
+          <td><span class="pill danger">no</span></td>
+          <td class="td-notes">Neither has a strategy for auto-deriving ownership metadata at this scale</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Side-by-side strengths and concerns -->
+  <div class="grid-2">
+
+    <!-- HolmesGPT -->
+    <div class="stack" style="gap:16px;">
+      <h2>HolmesGPT</h2>
+
+      <div>
+        <h3>Strengths</h3>
+        <div class="check-list">
+          <div class="check-item plus"><span class="marker">+</span><span>CNCF Sandbox project — cloud-native credibility and active community</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>MCP-native — your tool adapters can be MCP servers directly</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Extensible toolsets via YAML — low barrier to add new integrations</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Strong Kubernetes + Prometheus + Grafana coverage out of the box</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Handles petabyte-scale data with per-tool memory limits and disk streaming</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Open runbooks — encode operational expertise as reusable codified steps</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Works with any LLM provider including local/private models</span></div>
+        </div>
+      </div>
+
+      <div>
+        <h3>Concerns for your use case</h3>
+        <div class="check-list">
+          <div class="check-item minus"><span class="marker">–</span><span>Single loop, not controller + workers. Hard to add your structured routing logic on top without redesigning the core</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>LLM decides everything including tool selection — your "rules-first routing" principle is broken at the foundation</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No approval gate at all — unsafe for your execution gating requirement</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No inventory or dataflow graph concept at all</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No Airflow, Kafka, or data-pipeline awareness — your data pipeline chain is completely out of scope</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>Primarily K8s focused — your Mongo/data domain is out of scope</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No confidence scoring or structured worker output contract</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IncidentFox -->
+    <div class="stack" style="gap:16px;">
+      <h2>IncidentFox</h2>
+
+      <div>
+        <h3>Strengths</h3>
+        <div class="check-list">
+          <div class="check-item plus"><span class="marker">+</span><span>Multi-agent orchestration — closest to your controller + workers model</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Smart log sampling (statistics first, then targeted) — aligns with staged context loading</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>3-layer alert correlation (temporal + topology + semantic) reduces alert noise 85–95%</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Auto dependency mapping + blast radius — closest thing to your dataflow graph</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>RAPTOR knowledge base — hierarchical RAG over runbooks, handles long documents where standard RAG fails</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Continuous learning from past incidents — addresses your fallback/memory requirement</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Web console, Slack/Teams/Google Chat integration, multi-tenant RBAC</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>45+ integrations: Loki, Prometheus, Tempo, Loki, GitHub, Confluence, Jira, PagerDuty</span></div>
+          <div class="check-item plus"><span class="marker">+</span><span>Sandboxed execution with Envoy credential proxy — credentials never touch the agent</span></div>
+        </div>
+      </div>
+
+      <div>
+        <h3>Concerns for your use case</h3>
+        <div class="check-list">
+          <div class="check-item minus"><span class="marker">–</span><span>Approval workflows are Enterprise-only (paid). Your hard requirement needs the paid tier</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No Airflow integration — your largest single worker gap</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No Kafka integration — critical for your pipeline chain</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No Mongo collection ownership awareness — ambiguous data alerts (pdata, etc.) will not resolve correctly</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>Dependency mapping is automatic but not structured as a queryable inventory + graph</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>Routing still LLM-driven — no explicit rules-first engine; deterministic routing needs custom work</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No confidence score or structured worker output contract — workers return prose</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>No staged context budget enforcement — load policy must be built on top</span></div>
+          <div class="check-item minus"><span class="marker">–</span><span>Dual license: sandbox/security layer is BSL 1.1, not fully open for production without enterprise</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Unique gaps -->
+  <h2 style="margin-bottom:14px;">What neither project covers — your unique gaps</h2>
+  <div class="grid-4">
+    <div class="card">
+      <div class="card-header">Airflow + Kafka + Data Pipeline</div>
+      <div class="card-body">Neither has an Airflow worker, Kafka consumer lag awareness, or understanding of the Mongo → Airflow → Kafka → K8s → pdata chain. Your entire data pipeline layer is a gap in both projects.</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Two-layer metadata model</div>
+      <div class="card-body">Your Inventory + Dataflow Graph separation (deterministic routing vs semantic ownership) does not exist in either project. Both infer topology dynamically — which your design explicitly rejects for routing.</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Rules-first routing engine</div>
+      <div class="card-body">Both use LLM to decide tool/worker selection. Your principle that "LLM extracts entities, rules decide worker" requires a custom deterministic routing layer that neither provides.</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Scale strategy: DAGs</div>
+      <div class="card-body">Neither has a strategy for auto-deriving a dependency graph from DAG code + app code + Helm configs. Your hybrid model (thin manual inventory + auto-derived graph + RAG) is an original contribution.</div>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- Recommendation -->
+  <h2 style="margin-bottom:16px;">Recommendation</h2>
+  <div class="stack" style="gap:0;">
+    <div class="rec-row">
+      <span class="pill success" style="margin-top:2px; flex-shrink:0;">If you adapt</span>
+      <p class="rec-body"><strong>IncidentFox</strong> is the closer starting point. Multi-agent model, alert correlation, dependency mapping, and RAPTOR all align with your thinking. You will need to add: Airflow worker, Kafka worker, inventory layer, dataflow graph, rules-first routing, and unlock the approval gate (currently paid tier).</p>
+    </div>
+    <div class="rec-row">
+      <span class="pill warning" style="margin-top:2px; flex-shrink:0;">If you adopt</span>
+      <p class="rec-body"><strong>HolmesGPT</strong> gives you a clean MCP-native base and strong K8s tooling. But the single-loop architecture means you would need to redesign the core orchestration model. Best treated as an adapter/toolset library — not a controller framework.</p>
+    </div>
+    <div class="rec-row">
+      <span class="pill neutral" style="margin-top:2px; flex-shrink:0;">Reality check</span>
+      <p class="rec-body">Your design is more sophisticated than both projects in the routing + metadata layers. The data-pipeline awareness (Airflow/Kafka/Mongo chain), two-layer metadata model, and scale strategy are yours to build regardless of which base you pick.</p>
+    </div>
+  </div>
+
+  <hr class="divider" />
+  <p style="font-size:11px; color: #444; text-align:center;">Generated Apr 20, 2026 &nbsp;&middot;&nbsp; Based on agentic-ops-system.mdc &nbsp;&middot;&nbsp; HolmesGPT github.com/HolmesGPT/holmesgpt &nbsp;&middot;&nbsp; IncidentFox github.com/incidentfox/incidentfox</p>
+
+</div>
+</body>
+</html>

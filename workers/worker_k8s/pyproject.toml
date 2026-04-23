@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "worker-k8s"
+version = "0.1.0"
+description = "FixOps Kubernetes investigation worker"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fixops-contract>=0.1.0",
+  "pydantic-settings>=2.2",
+  "kubernetes>=29.0",
+  "pyyaml>=6.0",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.scripts]
+fixops-worker-k8s = "worker_k8s.cli:main"
+fixops-worker-k8s-serve = "worker_k8s.server_main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

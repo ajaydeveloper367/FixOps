@@ -1,0 +1,11 @@
+{
+  "title": "Grafana CrashLoopBackOff",
+  "message": "Back-off restarting failed container grafana in pod monitoring-grafana-59d94f4f84-fbvp7_monitoring(a639bc0e-2846-4dd0-8220-f985e89ea8eb). (7h27m)",
+  "entity_type": "pod",
+  "name": "monitoring-grafana-59d94f4f84-fbvp7",
+  "namespace": "monitoring",
+  "cluster_id": "docker-desktop",
+  "extra": {
+    "container": "grafana"
+  }
+}
