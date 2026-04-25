@@ -1,0 +1,10 @@
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install --no-cache-dir -U pip
+COPY packages/fixops-contract /build/packages/fixops-contract
+COPY services/controller /build/services/controller
+COPY config /app/config
+RUN pip install --no-cache-dir /build/packages/fixops-contract /build/services/controller
+ENV FIXOPS_ROUTING_RULES_PATH=/app/config/routing_rules.yaml
+EXPOSE 8080
+CMD ["uvicorn", "fixops_controller.api.app:app", "--host", "0.0.0.0", "--port", "8080"]

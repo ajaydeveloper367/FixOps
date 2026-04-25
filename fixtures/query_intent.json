@@ -1,0 +1,11 @@
+{
+  "synthetic_alert": {
+    "entity_type": "service",
+    "entity_name": "checkout-api",
+    "namespace": "prod",
+    "alert_class": "QuerySynthetic",
+    "labels": {"intent": "latency"}
+  },
+  "session_id": "sess-demo-001",
+  "summary": "Why is checkout-api slow in prod?"
+}

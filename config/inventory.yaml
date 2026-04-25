@@ -1,0 +1,9 @@
+clusters:
+  - cluster_id: dev-eks
+    credentials_ref: ref:dev-eks
+    prometheus_url: http://prometheus:9090
+services:
+  - service_id: checkout-api
+    service_name: checkout-api
+    cluster_id: dev-eks
+    credentials_ref: ref:dev-eks

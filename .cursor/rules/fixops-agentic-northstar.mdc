@@ -1,0 +1,178 @@
+---
+description: Target spec for Infinity-Sentinel / FixOps — LangGraph controller, standalone workers, rules-first ops, MCP-first tooling, portable requirements for a greenfield repo.
+---
+
+# FixOps — Agentic Ops North Star (consolidated spec)
+
+This file merges **`agentic-ops-system.mdc`** (if present), **`context/comparison/GOAL.md`**, **`context/comparison/DECISIONS.md`**, and the **HTML vision pack** under `context/comparison/*.html` into one handoff document. **Authoritative AD entries** live in **DECISIONS.md**; this file is the **single checklist** for implementation.
+
+**Scope:** describes **only the target programme** (what to build on a **new branch or new repo**). It is **not** tied to any prior codebase. Copy into a fresh repo as **requirements**.
+
+---
+
+## One-line principle
+
+> **Inventory** tells the controller *how* to debug. **Dataflow** tells it *where* to start. **Workers** produce evidence in a **fixed contract**. The **controller** routes, stages context, and chains workers — **rules-first**. **LLM** assists extraction and narrative — **not** unbounded tool picking. **Evidence first**, conclusion second, **human approval before any mutating action**.
+
+---
+
+## What we are building
+
+- **Alerts** and **general / ad-hoc operational queries** on the **same** LangGraph pipeline (bounded intent — **AD-013**); architecture does not fork.
+- **Staged, budgeted** investigations with an **auditable decision log**.
+- **Read-only default**; mutating actions only after approval (**AD-003**).
+
+**North-star test (GOAL):** If an on-call reads the output **without opening a dashboard**, do they know **what broke, why, what to do, and what was ruled out**?
+
+---
+
+## Fixed architecture
+
+| Topic | Decision |
+|-------|-----------|
+| **Topology** | **One controller**, **many workers**. Workers **do not** call each other; all fan-out through the **controller** with compact payloads. |
+| **Deployment** | **Standalone workers** (separate processes / images), **HTTP + shared wire schema** (Pydantic/OpenAPI contract). Controller holds **URLs + timeouts** — **no** importing worker implementation packages. |
+| **Routing** | **Rules-first**. LLM **extracts** entities → **deterministic routing table** picks the worker. LLM does **not** choose the next cluster/tool hop (**AD-002**). |
+| **Execution** | **Human-gated** for mutations: suggest → approve → execute → verify. Auto-remediation **opt-in** for lower env only (**AD-003**). |
+| **Metadata** | **Inventory** + **Dataflow graph** (**AD-004**). |
+| **Context** | **Staged + budgeted** (**AD-005**): cheap → logs/metrics → code/runbooks/RAG when needed. Hard caps on workers, tool calls, tokens. |
+| **Worker output** | **AD-006** JSON: `checked`, `findings`, `evidence_refs`, `ruled_out`, `confidence`, `next_suggested_check`. No raw log dumps between workers. |
+| **Infra / tool access** | **AD-007** — mockable interfaces. **MCP-first** where it helps; **typed in-process adapters** (SDK/httpx) allowed per integration when MCP adds no clear win. |
+| **Controller** | **LangGraph** (**AD-014**): checkpoints, conditional edges, human-in-the-loop. |
+| **LLM** | **Shared external API** for controller + workers (**L2**); AD-006 governs wire format to controller. |
+| **Confidence** | **AD-008** numeric gates — not “LLM says stop.” |
+| **Institutional knowledge** | **AD-009** — RAG or equivalent (vector, hybrid, or vector-less retrieval); may ship **v1** with the rest of the stack. |
+| **Inventory storage** | YAML in Git → validated load into **Postgres or Mongo** (**AD-010**). |
+| **Credentials** | **AD-012** — controller **refs only**; workers **resolve** via pluggable backends (config → K8s secrets / AWS SM / Vault / …). Nothing sensitive in LLM context. |
+| **MCP / adapters** | **AD-011** — community or custom MCP; reuse patterns from mature OSS (e.g. HolmesGPT toolsets, IncidentFox skills) **behind your interfaces**, not their orchestration model. |
+
+**Workers do the reasoning** *inside* their boundary (which tools/adapters to call); the **controller** owns **cross-worker orchestration** and **rules-based** next steps.
+
+---
+
+## Intended workers
+
+| Worker | Role |
+|--------|------|
+| **K8s / Infra** | Pods, deploys, events, logs |
+| **Observability** | Prometheus / Loki / Tempo / Grafana |
+| **Pipeline** | Airflow, Kafka, … |
+| **App RCA** | Code, config |
+| **DB** | Mongo / RDS |
+| **Remediation planner** | Options (read-heavy) |
+| **Executor** | **Approved** actions only |
+
+---
+
+## Routing table (illustrative)
+
+- **Pod / deployment / namespace** → Infra worker (often no graph hop).
+- **Service / DAG name** → Inventory → runtime → worker.
+- **Collection / topic** → **Graph first** → owner → Inventory → worker.
+- **Unclear entity** → labels / tags / history (when built).
+
+---
+
+## Standalone agents
+
+- Deployable units; **HTTP** investigate endpoint; **AD-006** response.
+- **MCP and/or adapters** inside worker; **shared LLM** optional for interpretation.
+- Controller sends **inventory references** only for secrets.
+
+---
+
+## Implementation locks (2026-04-23)
+
+| # | Lock |
+|---|------|
+| L1 | MCP-first + adapters per **AD-011** / **AD-007** |
+| L2 | Shared LLM + AD-006 wire format |
+| L3 | LangGraph (**AD-014**) |
+| L4 | Thin inventory early; auto-sync later |
+| L5 | Custom MCP for Airflow-style APIs when needed |
+| L6 | Pluggable credential backends (**AD-012**) |
+| L7 | Alerts + queries one pipeline (**AD-013**) |
+
+---
+
+## Master architecture diagram
+
+**HTML:** `context/comparison/fixops-architecture-master.html` — SVG + Mermaid + download.
+
+**Mermaid** (also inside that HTML):
+
+```mermaid
+flowchart TB
+  subgraph ingress["Ingress"]
+    A[Alerts]
+    Q[General queries]
+    A --> B[Bounded intent AD-013]
+    Q --> B
+  end
+  subgraph meta["Metadata"]
+    INV[(Inventory DB)]
+    GRA[(Dataflow graph)]
+  end
+  subgraph ctrl["Controller LangGraph AD-014"]
+    B --> EXT[Entity extract LLM schema-bound]
+    EXT --> RTE[Routing rules only AD-002]
+    RTE --> INV
+    RTE --> GRA
+    RTE --> STG[Staged context AD-005]
+    STG --> ORC[Orchestrate workers]
+    ORC --> LOG[Decision log]
+    ORC --> CONF[Confidence AD-008]
+    CONF --> RCA[RCA synthesis LLM]
+  end
+  subgraph workers["Workers HTTP AD-006"]
+    W1[K8s worker]
+    W2[Obs worker]
+    W3[Pipeline worker]
+    W4[App RCA]
+    W5[DB worker]
+  end
+  subgraph cred["Per worker AD-012"]
+    CR[Credential backends pluggable]
+  end
+  subgraph mcp["MCP / adapters AD-011 AD-007"]
+    MS[Tool surface]
+  end
+  subgraph tgt["Systems"]
+    SYS[EKS Prom Loki Airflow Kafka DB]
+  end
+  LLM[(Shared LLM L2)]
+  EXT --> LLM
+  RCA --> LLM
+  ORC --> W1
+  ORC --> W2
+  ORC --> W3
+  INV -. refs only .-> W1
+  W1 --> CR
+  W2 --> CR
+  W3 --> CR
+  W1 --> MS
+  W2 --> MS
+  W3 --> MS
+  MS --> SYS
+  subgraph gate["Execution AD-003"]
+    AP[Human approval]
+    EX[Executor]
+  end
+  RCA --> AP
+  AP --> EX
+  EX --> MS
+```
+
+---
+
+## Files to read
+
+| Path | Why |
+|------|-----|
+| `context/comparison/GOAL.md` | Invariants |
+| `context/comparison/DECISIONS.md` | AD-001 … AD-014, Mode B, diagram |
+| `context/comparison/fixops-architecture-master.html` | Visual architecture |
+
+---
+
+*North star consolidated for greenfield handoff · 2026-04-24*

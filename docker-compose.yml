@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fixops
+      POSTGRES_PASSWORD: fixops
+      POSTGRES_DB: fixops
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixops -d fixops"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  worker-obs:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.worker-obs
+    environment:
+      FIXOPS_WORKER_PROMETHEUS_URL: ""
+    ports:
+      - "8081:8081"
+
+  executor:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.executor
+    environment:
+      FIXOPS_ENVIRONMENT: development
+    ports:
+      - "8082:8082"
+
+  controller:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.controller
+    depends_on:
+      postgres:
+        condition: service_healthy
+      worker-obs:
+        condition: service_started
+      executor:
+        condition: service_started
+    environment:
+      FIXOPS_DATABASE_URL: postgresql+psycopg://fixops:fixops@postgres:5432/fixops
+      FIXOPS_CHECKPOINT_BACKEND: postgres
+      FIXOPS_MOCK_LLM: "1"
+      FIXOPS_WORKER_OBS_BASE_URL: http://worker-obs:8081
+      FIXOPS_EXECUTOR_URL: http://executor:8082
+      FIXOPS_ROUTING_RULES_PATH: /app/config/routing_rules.yaml
+      FIXOPS_INVENTORY_SEED_PATH: /app/config/inventory.yaml
+      FIXOPS_GRAPH_SEED_PATH: /app/config/graph_edges.yaml
+      FIXOPS_ENVIRONMENT: development
+    ports:
+      - "8080:8080"
+
+  # Optional: run MCP stdio alongside a client in your IDE; container left as reference.
+  mcp-fixops-obs:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.mcp-obs
+    profiles: ["mcp"]
+    stdin_open: true
+    tty: true
+    environment:
+      PROMETHEUS_URL: ""

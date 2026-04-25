@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FixOps / Infinity-Sentinel — Master architecture</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f0f;
+      --surface: #181818;
+      --border: #2a2a2a;
+      --text: #e8e8e8;
+      --muted: #888;
+      --accent: #5b8ff9;
+      --warn: #d97706;
+      --purple: #c084fc;
+      --teal: #2dd4bf;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); padding: 28px 20px 60px; line-height: 1.55; }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+    button {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    .note { font-size: 11px; color: var(--muted); margin-top: 14px; max-width: 900px; }
+    .svg-box { background: var(--surface); border-radius: 8px; padding: 8px; overflow-x: auto; border: 1px solid var(--border); }
+    svg { display: block; width: 100%; height: auto; min-width: 860px; }
+    h2 { font-size: 14px; font-weight: 600; margin: 28px 0 10px; color: var(--text); }
+    pre.mermaid-src {
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 11px;
+      overflow-x: auto;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FixOps / Infinity-Sentinel — Master architecture</h1>
+  <p class="sub">Specs: <code>.cursor/rules/fixops-agentic-northstar.mdc</code> · <code>context/comparison/DECISIONS.md</code> · <code>context/comparison/GOAL.md</code></p>
+
+  <div class="toolbar">
+    <button type="button" id="btn-download">Download this page as HTML</button>
+    <span style="font-size:11px;color:var(--muted);">Or File → Save Page As.</span>
+  </div>
+
+  <div class="svg-box">
+  <svg width="900" height="1180" viewBox="0 0 900 1180" aria-label="FixOps system architecture">
+    <defs>
+      <marker id="m-arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L0,8 L8,4 z" fill="#555"/></marker>
+      <marker id="m-acc" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L0,8 L8,4 z" fill="#5b8ff9"/></marker>
+    </defs>
+    <rect width="900" height="1180" fill="#181818" rx="10"/>
+
+    <text x="450" y="28" text-anchor="middle" fill="#e8e8e8" font-size="15" font-weight="700">End-to-end system map</text>
+    <text x="450" y="48" text-anchor="middle" fill="#888" font-size="11">Rules-first routing · MCP-first + adapters · Shared LLM · Ref-only credentials · LangGraph · Alerts + queries</text>
+
+    <rect x="280" y="68" width="340" height="46" rx="6" fill="#1f1f1f" stroke="#333" stroke-width="1"/>
+    <text x="450" y="88" text-anchor="middle" fill="#e8e8e8" font-size="11" font-weight="600">Ingress: alerts + general / ad-hoc queries</text>
+    <text x="450" y="104" text-anchor="middle" fill="#888" font-size="9">Bounded structured intent (AD-013)</text>
+    <line x1="450" y1="114" x2="450" y2="132" stroke="#444" stroke-width="1.5" marker-end="url(#m-arr)"/>
+
+    <rect x="32" y="132" width="168" height="56" rx="6" fill="#1a1a1a" stroke="#444" stroke-dasharray="5 3"/>
+    <text x="116" y="154" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">Inventory</text>
+    <text x="116" y="170" text-anchor="middle" fill="#666" font-size="8">YAML in Git to DB (AD-010)</text>
+    <rect x="700" y="132" width="168" height="56" rx="6" fill="#1a1a1a" stroke="#444" stroke-dasharray="5 3"/>
+    <text x="784" y="154" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">Dataflow graph</text>
+    <text x="784" y="170" text-anchor="middle" fill="#666" font-size="8">producers / consumers (AD-004)</text>
+
+    <rect x="260" y="132" width="380" height="118" rx="8" fill="#0e1628" stroke="#5b8ff9" stroke-width="2"/>
+    <text x="450" y="156" text-anchor="middle" fill="#5b8ff9" font-size="12" font-weight="700">CONTROLLER — LangGraph (AD-014)</text>
+    <text x="450" y="176" text-anchor="middle" fill="#888" font-size="9">Entity extract (LLM, schema-bound) to routing engine (rules only, AD-002)</text>
+    <text x="450" y="192" text-anchor="middle" fill="#888" font-size="9">Staged context + budgets (AD-005) · orchestrate workers · decision log · confidence (AD-008)</text>
+    <text x="450" y="208" text-anchor="middle" fill="#888" font-size="9">RCA synthesis (LLM) · remediation options · AD-006 between workers</text>
+    <text x="450" y="228" text-anchor="middle" fill="#888" font-size="9">Planner to approval; no raw log dumps peer-to-peer</text>
+
+    <line x1="200" y1="176" x2="260" y2="176" stroke="#444" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#m-arr)"/>
+    <line x1="640" y1="176" x2="700" y2="176" stroke="#444" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#m-arr)"/>
+
+    <rect x="32" y="268" width="200" height="72" rx="6" fill="#160a24" stroke="#5b21b6" stroke-width="1"/>
+    <text x="132" y="292" text-anchor="middle" fill="#c084fc" font-size="10" font-weight="600">Shared external LLM</text>
+    <text x="132" y="310" text-anchor="middle" fill="#888" font-size="8">Controller + workers (L2)</text>
+    <text x="132" y="326" text-anchor="middle" fill="#666" font-size="8">No secrets in prompts (AD-012)</text>
+
+    <rect x="668" y="268" width="200" height="72" rx="6" fill="#160a24" stroke="#5b21b6" stroke-width="1"/>
+    <text x="768" y="292" text-anchor="middle" fill="#c084fc" font-size="10" font-weight="600">RAG / retrieval (AD-009)</text>
+    <text x="768" y="310" text-anchor="middle" fill="#888" font-size="8">Vector, hybrid, or vector-less</text>
+
+    <line x1="450" y1="250" x2="132" y2="268" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.7"/>
+    <line x1="450" y1="250" x2="768" y2="268" stroke="#444" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.7"/>
+
+    <text x="24" y="372" fill="#666" font-size="9" font-style="italic">WORKERS — standalone HTTP, AD-006 contract</text>
+    <rect x="32" y="382" width="130" height="52" rx="5" fill="#1f1f1f" stroke="#333"/>
+    <text x="97" y="404" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">K8s</text>
+    <rect x="182" y="382" width="130" height="52" rx="5" fill="#1f1f1f" stroke="#333"/>
+    <text x="247" y="404" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">Observability</text>
+    <rect x="332" y="382" width="130" height="52" rx="5" fill="#1f1f1f" stroke="#333"/>
+    <text x="397" y="404" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">Pipeline</text>
+    <rect x="482" y="382" width="130" height="52" rx="5" fill="#1f1f1f" stroke="#333"/>
+    <text x="547" y="404" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">App RCA</text>
+    <rect x="632" y="382" width="130" height="52" rx="5" fill="#1f1f1f" stroke="#333"/>
+    <text x="697" y="404" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">DB</text>
+
+    <line x1="450" y1="250" x2="97" y2="382" stroke="#444" stroke-width="1" marker-end="url(#m-arr)"/>
+    <line x1="450" y1="250" x2="247" y2="382" stroke="#444" stroke-width="1" marker-end="url(#m-arr)"/>
+    <line x1="450" y1="250" x2="397" y2="382" stroke="#444" stroke-width="1" marker-end="url(#m-arr)"/>
+
+    <rect x="32" y="458" width="836" height="56" rx="6" fill="#111" stroke="#333"/>
+    <text x="450" y="482" text-anchor="middle" fill="#e8e8e8" font-size="10" font-weight="600">Per worker: pluggable credentials (AD-012) + MCP client and/or typed adapters (AD-011 / AD-007)</text>
+    <text x="450" y="500" text-anchor="middle" fill="#888" font-size="9">Controller passes credentials_ref, cluster_id, entity keys — never secret material</text>
+
+    <line x1="97" y1="434" x2="97" y2="458" stroke="#555" stroke-width="1"/>
+    <line x1="247" y1="434" x2="247" y2="458" stroke="#555" stroke-width="1"/>
+    <line x1="397" y1="434" x2="397" y2="458" stroke="#555" stroke-width="1"/>
+
+    <rect x="32" y="536" width="836" height="64" rx="6" fill="#1a0d00" stroke="#7c2d12" stroke-width="1"/>
+    <text x="450" y="560" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="700">MCP tool servers + adapter interfaces</text>
+    <text x="450" y="580" text-anchor="middle" fill="#888" font-size="9">Community MCP, custom MCP (e.g. Airflow REST), or in-process adapters — per integration</text>
+
+    <line x1="97" y1="514" x2="180" y2="536" stroke="#555" stroke-width="1" marker-end="url(#m-arr)"/>
+    <line x1="247" y1="514" x2="450" y2="536" stroke="#555" stroke-width="1" marker-end="url(#m-arr)"/>
+
+    <rect x="32" y="624" width="836" height="44" rx="5" fill="#071c1c" stroke="#0d4040" stroke-width="1"/>
+    <text x="450" y="652" text-anchor="middle" fill="#2dd4bf" font-size="10" font-weight="600">Underlying systems (access only through tool surface + policy)</text>
+
+    <line x1="450" y1="668" x2="450" y2="696" stroke="#444" stroke-width="1.5" marker-end="url(#m-arr)"/>
+    <rect x="310" y="696" width="280" height="44" rx="6" fill="#2d1f00" stroke="#d97706" stroke-width="1.5"/>
+    <text x="450" y="716" text-anchor="middle" fill="#d97706" font-size="11" font-weight="600">Approval gate — human (AD-003)</text>
+    <text x="450" y="732" text-anchor="middle" fill="#888" font-size="8">suggest → approve → execute → verify</text>
+    <line x1="450" y1="740" x2="450" y2="768" stroke="#d97706" stroke-width="2" marker-end="url(#m-arr)"/>
+    <rect x="340" y="768" width="220" height="40" rx="6" fill="#0e1628" stroke="#5b8ff9" stroke-width="1.5"/>
+    <text x="450" y="792" text-anchor="middle" fill="#5b8ff9" font-size="11" font-weight="600">Executor</text>
+
+    <line x1="450" y1="808" x2="450" y2="848" stroke="#5b8ff9" stroke-width="1.5" marker-end="url(#m-acc)"/>
+    <text x="450" y="868" text-anchor="middle" fill="#888" font-size="9">Executor: approved write tools via same MCP/adapter discipline</text>
+
+    <rect x="32" y="900" width="836" height="250" rx="8" fill="#141414" stroke="#2a2a2a"/>
+    <text x="48" y="928" fill="#e8e8e8" font-size="11" font-weight="700">Legend</text>
+    <text x="48" y="950" fill="#888" font-size="10">Blue outline: LangGraph controller. Orange: MCP/adapter tool layer. Teal: real infra. Dashed: metadata lookups.</text>
+    <text x="48" y="972" fill="#888" font-size="10">Mermaid source is in the block below and in DECISIONS.md / fixops-agentic-northstar.mdc.</text>
+    <text x="48" y="998" fill="#666" font-size="9">Self-contained file — keep in repo for offline reviews.</text>
+  </svg>
+  </div>
+
+  <h2>Mermaid (for Markdown viewers that support it)</h2>
+  <pre class="mermaid-src" id="mermaid-block">flowchart TB
+  subgraph ingress["Ingress"]
+    A[Alerts]
+    Q[General queries]
+    A --> B[Bounded intent AD-013]
+    Q --> B
+  end
+  subgraph meta["Metadata"]
+    INV[(Inventory DB)]
+    GRA[(Dataflow graph)]
+  end
+  subgraph ctrl["Controller LangGraph AD-014"]
+    B --> EXT[Entity extract LLM schema-bound]
+    EXT --> RTE[Routing rules only AD-002]
+    RTE --> INV
+    RTE --> GRA
+    RTE --> STG[Staged context AD-005]
+    STG --> ORC[Orchestrate workers]
+    ORC --> LOG[Decision log]
+    ORC --> CONF[Confidence AD-008]
+    CONF --> RCA[RCA synthesis LLM]
+  end
+  subgraph workers["Workers HTTP AD-006"]
+    W1[K8s worker]
+    W2[Obs worker]
+    W3[Pipeline worker]
+    W4[App RCA]
+    W5[DB worker]
+  end
+  subgraph cred["Per worker AD-012"]
+    CR[Credential backends pluggable]
+  end
+  subgraph mcp["MCP / adapters AD-011 AD-007"]
+    MS[Tool surface]
+  end
+  subgraph tgt["Systems"]
+    SYS[EKS Prom Loki Airflow Kafka DB]
+  end
+  LLM[(Shared LLM L2)]
+  EXT --> LLM
+  RCA --> LLM
+  ORC --> W1
+  ORC --> W2
+  ORC --> W3
+  INV -. refs only .-> W1
+  W1 --> CR
+  W2 --> CR
+  W3 --> CR
+  W1 --> MS
+  W2 --> MS
+  W3 --> MS
+  MS --> SYS
+  subgraph gate["Execution AD-003"]
+    AP[Human approval]
+    EX[Executor]
+  end
+  RCA --> AP
+  AP --> EX
+  EX --> MS</pre>
+
+  <p class="note">Download bundles this document (DOCTYPE + body). Canonical path in repo: <code>context/comparison/fixops-architecture-master.html</code> (use <code>.html</code>; <code>.htm</code> is the same idea).</p>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById("btn-download");
+  if (!btn) return;
+  btn.addEventListener("click", function () {
+    var html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    var blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "fixops-architecture-master.html";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install --no-cache-dir -U pip
+COPY services/mcp-fixops-obs /build/services/mcp-fixops-obs
+RUN pip install --no-cache-dir /build/services/mcp-fixops-obs
+ENTRYPOINT ["python", "-m", "mcp_fixops_obs.server"]

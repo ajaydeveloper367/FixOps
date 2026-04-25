@@ -1,0 +1,13 @@
+{
+  "source": "alert",
+  "environment": "development",
+  "raw": {
+    "alertname": "PodCrashLoopBackOff",
+    "namespace": "prod",
+    "pod": "checkout-api-7d8f9",
+    "labels": {
+      "entity_type": "pod",
+      "app": "checkout-api"
+    }
+  }
+}

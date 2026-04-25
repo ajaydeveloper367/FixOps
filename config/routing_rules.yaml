@@ -1,0 +1,12 @@
+version: 1
+default_worker_id: worker-obs
+rules:
+  - match:
+      alert_class: HighErrorRate
+    worker_id: worker-obs
+  - match:
+      entity_type: service
+    worker_id: worker-obs
+  - match:
+      alert_class: QuerySynthetic
+    worker_id: worker-obs
