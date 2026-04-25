@@ -115,6 +115,8 @@ jq -n --slurpfile n fixtures/alert_pod_crash.json '{thread_id:"demo-1", normaliz
   | curl -sS -X POST http://127.0.0.1:8080/v1/investigations/run -H 'Content-Type: application/json' -d @- | python3 -m json.tool
 ```
 
+If **`controller_api_key`** is set in `config/controller.yaml` (or **`FIXOPS_CONTROLLER_API_KEY`**), add **`Authorization: Bearer <key>`** or **`X-API-Key: <key>`** to **`/v1/investigations/run`**, **`/v1/threads/.../resume`**, and **`/v1/threads/.../snapshot`**. **`/healthz`** stays open for probes.
+
 If **`detail`** mentions **`Expecting value`** or **empty message content**, the controller reached **Ollama** but the model returned **empty or non-JSON** text; keep **`ollama serve`**, try another model, or set **`mock_llm: true`** in `config/controller.yaml` to test the rest of the pipeline without the LLM.
 
 Response shape:

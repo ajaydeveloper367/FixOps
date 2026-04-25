@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # When false, approval is auto-granted after RCA (local / CI one-shot).
     require_human_approval: bool = True
     environment: str = "development"
+    # When set (YAML or FIXOPS_CONTROLLER_API_KEY), POST /run, /resume, and GET /snapshot require it.
+    controller_api_key: str | None = None
 
     @model_validator(mode="before")
     @classmethod

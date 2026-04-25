@@ -24,3 +24,5 @@ auto_approve_execute: false
 # Set true in prod so POST /v1/investigations/run pauses until POST .../resume with { "resume": { "granted": true } }.
 require_human_approval: true
 environment: development
+# Optional: require Authorization: Bearer <key> or X-API-Key on /run, /resume, /snapshot.
+# controller_api_key: "change-me"

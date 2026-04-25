@@ -4,12 +4,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from langgraph.errors import EmptyInputError
 from pydantic import BaseModel, Field
 
 from sqlalchemy.engine.url import make_url
 
+from fixops_controller.api.auth import require_controller_api_key
 from fixops_controller.api.graph_invoke import invoke_or_interrupt, resume_thread
 from fixops_controller.db.sync_session import init_sync_schema
 from fixops_controller.graph.build import build_compiled_graph, close_checkpoint_pool
@@ -79,7 +80,10 @@ def _normalized_from_body(body: RunInvestigationRequest) -> dict[str, Any]:
 
 
 @app.post("/v1/investigations/run")
-def run_investigation(body: RunInvestigationRequest) -> dict[str, Any]:
+def run_investigation(
+    body: RunInvestigationRequest,
+    _: None = Depends(require_controller_api_key),
+) -> dict[str, Any]:
     graph = app.state.graph
     normalized = _normalized_from_body(body)
     cfg: dict[str, Any] = {"configurable": {"thread_id": body.thread_id or "default"}}
@@ -96,7 +100,11 @@ def _thread_has_pending_interrupt(graph: Any, cfg: dict[str, Any]) -> bool:
 
 
 @app.post("/v1/threads/{thread_id}/resume")
-def resume_investigation(thread_id: str, body: ResumeThreadRequest) -> dict[str, Any]:
+def resume_investigation(
+    thread_id: str,
+    body: ResumeThreadRequest,
+    _: None = Depends(require_controller_api_key),
+) -> dict[str, Any]:
     """Resume a paused graph (same ``thread_id`` as ``/v1/investigations/run``)."""
     graph = app.state.graph
     cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
@@ -119,7 +127,10 @@ def resume_investigation(thread_id: str, body: ResumeThreadRequest) -> dict[str,
 
 
 @app.get("/v1/threads/{thread_id}/snapshot")
-def thread_snapshot(thread_id: str) -> dict[str, Any]:
+def thread_snapshot(
+    thread_id: str,
+    _: None = Depends(require_controller_api_key),
+) -> dict[str, Any]:
     """Debug: latest checkpoint values for a thread (optional)."""
     graph = app.state.graph
     cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
