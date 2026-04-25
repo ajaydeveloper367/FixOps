@@ -3,6 +3,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir -U pip
 COPY packages/fixops-contract /build/packages/fixops-contract
 COPY services/worker-obs /build/services/worker-obs
+COPY config /app/config
 RUN pip install --no-cache-dir /build/packages/fixops-contract /build/services/worker-obs
 EXPOSE 8081
 CMD ["uvicorn", "fixops_worker_obs.app:app", "--host", "0.0.0.0", "--port", "8081"]

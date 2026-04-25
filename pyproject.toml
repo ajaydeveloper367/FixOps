@@ -44,6 +44,9 @@ dev = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["services/controller/src", "packages/fixops-contract/src", "services/worker-obs/src", "services/executor/src"]
+markers = [
+    "integration: live services (Prometheus from config/worker-obs.yaml; skips if unreachable)",
+]
 
 [tool.ruff]
 line-length = 100

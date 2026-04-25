@@ -17,8 +17,6 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.worker-obs
-    environment:
-      FIXOPS_WORKER_PROMETHEUS_URL: ""
     ports:
       - "8081:8081"
 

@@ -1,4 +1,4 @@
-"""LangGraph smoke — mocked worker HTTP + no real Postgres."""
+"""Human-in-the-loop: interrupt at await_approval + Command(resume)."""
 
 from __future__ import annotations
 
@@ -9,17 +9,19 @@ import httpx
 import pytest
 import respx
 
+from fixops_controller.api.graph_invoke import invoke_or_interrupt as invoke_fn
+from fixops_controller.api.graph_invoke import resume_thread as resume_fn
 from fixops_controller.graph.build import build_compiled_graph
 from fixops_controller.settings import settings
 
 
 @pytest.fixture
-def graph_mocks(monkeypatch: pytest.MonkeyPatch, repo_root: Path):
+def hitl_mocks(monkeypatch: pytest.MonkeyPatch, repo_root: Path):
     monkeypatch.setattr(settings, "mock_llm", True)
     monkeypatch.setattr(settings, "checkpoint_backend", "memory")
     monkeypatch.setattr(settings, "environment", "development")
     monkeypatch.setattr(settings, "auto_approve_execute", False)
-    monkeypatch.setattr(settings, "require_human_approval", False)
+    monkeypatch.setattr(settings, "require_human_approval", True)
     monkeypatch.setattr(settings, "worker_obs_base_url", "http://worker.test")
     monkeypatch.setattr(settings, "executor_url", "http://executor.test")
     monkeypatch.setattr(settings, "routing_rules_path", str(repo_root / "config" / "routing_rules.yaml"))
@@ -43,16 +45,16 @@ def graph_mocks(monkeypatch: pytest.MonkeyPatch, repo_root: Path):
 
 
 @respx.mock
-def test_graph_alert_fixture(graph_mocks, repo_root: Path):
+def test_hitl_interrupt_then_resume_granted_executes(hitl_mocks, repo_root: Path):
     respx.post("http://worker.test/investigate").mock(
         return_value=httpx.Response(
             200,
             json={
-                "checked": ["prometheus instant query: up{job=\"checkout-api\"}"],
+                "checked": ["prometheus"],
                 "findings": ["Found 1 series for selector"],
-                "evidence_refs": ["prom:query:up{job=\"checkout-api\"}"],
+                "evidence_refs": ["e1"],
                 "ruled_out": [],
-                "confidence": 0.82,
+                "confidence": 0.9,
                 "next_suggested_check": None,
             },
         )
@@ -62,14 +64,20 @@ def test_graph_alert_fixture(graph_mocks, repo_root: Path):
     )
     raw = json.loads((repo_root / "fixtures" / "alert_pod_crash.json").read_text())
     g = build_compiled_graph()
-    out = g.invoke({"normalized": raw}, config={"configurable": {"thread_id": "test-alert"}})
-    assert out["route"]["worker_id"] == "worker-obs"
-    assert out["merged"]["confidence"] >= 0.82
-    assert "rca" in out
+    cfg = {"configurable": {"thread_id": "hitl-1"}}
+    first = invoke_fn(g, {"normalized": raw}, cfg)
+    assert first["status"] == "awaiting_approval"
+    assert first["interrupts"][0]["value"]["kind"] == "await_approval"
+    assert "rca" in first["state"]
+
+    second = resume_fn(g, {"granted": True}, cfg)
+    assert second["status"] == "completed"
+    assert second["state"]["approval"]["granted"] is True
+    assert second["state"].get("execution") is not None
 
 
 @respx.mock
-def test_graph_query_intent_fixture(graph_mocks, repo_root: Path):
+def test_hitl_resume_denied_skips_executor(hitl_mocks, repo_root: Path):
     respx.post("http://worker.test/investigate").mock(
         return_value=httpx.Response(
             200,
@@ -83,17 +91,13 @@ def test_graph_query_intent_fixture(graph_mocks, repo_root: Path):
             },
         )
     )
-    respx.post("http://executor.test/execute").mock(
-        return_value=httpx.Response(200, json={"status": "accepted", "executed": []}),
-    )
-    intent = json.loads((repo_root / "fixtures" / "query_intent.json").read_text())
-    normalized = {
-        "source": "query",
-        "environment": "development",
-        "raw": intent,
-        "session_id": intent["session_id"],
-    }
+    raw = json.loads((repo_root / "fixtures" / "alert_pod_crash.json").read_text())
     g = build_compiled_graph()
-    out = g.invoke({"normalized": normalized}, config={"configurable": {"thread_id": "test-query"}})
-    assert out["extracted"]["entity_name"] == "checkout-api"
-    assert out["route"]["worker_id"] == "worker-obs"
+    cfg = {"configurable": {"thread_id": "hitl-2"}}
+    first = invoke_fn(g, {"normalized": raw}, cfg)
+    assert first["status"] == "awaiting_approval"
+
+    second = resume_fn(g, {"granted": False}, cfg)
+    assert second["status"] == "completed"
+    assert second["state"]["approval"]["granted"] is False
+    assert second["state"].get("execution") is None

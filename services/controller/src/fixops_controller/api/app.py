@@ -5,12 +5,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from langgraph.errors import EmptyInputError
 from pydantic import BaseModel, Field
 
 from sqlalchemy.engine.url import make_url
 
+from fixops_controller.api.graph_invoke import invoke_or_interrupt, resume_thread
 from fixops_controller.db.sync_session import init_sync_schema
-from fixops_controller.graph.build import build_compiled_graph
+from fixops_controller.graph.build import build_compiled_graph, close_checkpoint_pool
 from fixops_controller.inventory.seed import seed_inventory_and_graph
 from fixops_controller.settings import settings
 
@@ -35,6 +37,7 @@ async def lifespan(app: FastAPI):
         seed_inventory_and_graph(inv, gr)
     app.state.graph = build_compiled_graph()
     yield
+    close_checkpoint_pool()
 
 
 app = FastAPI(title="FixOps Controller", lifespan=lifespan)
@@ -51,29 +54,77 @@ class RunInvestigationRequest(BaseModel):
     )
 
 
+class ResumeThreadRequest(BaseModel):
+    """Payload passed to LangGraph ``Command(resume=...)`` (e.g. ``{\"granted\": true}``)."""
+
+    resume: dict[str, Any] = Field(default_factory=dict)
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/v1/investigations/run")
-def run_investigation(body: RunInvestigationRequest) -> dict[str, Any]:
-    graph = app.state.graph
+def _normalized_from_body(body: RunInvestigationRequest) -> dict[str, Any]:
     if body.bounded_intent:
-        syn = body.bounded_intent.get("synthetic_alert") or {}
-        normalized = {
+        return {
             "source": "query",
             "environment": settings.environment,
             "raw": body.bounded_intent,
             "session_id": body.bounded_intent.get("session_id"),
         }
-    elif body.normalized:
-        normalized = body.normalized
-    else:
-        raise HTTPException(400, "Provide normalized or bounded_intent")
+    if body.normalized:
+        return body.normalized
+    raise HTTPException(400, "Provide normalized or bounded_intent")
+
+
+@app.post("/v1/investigations/run")
+def run_investigation(body: RunInvestigationRequest) -> dict[str, Any]:
+    graph = app.state.graph
+    normalized = _normalized_from_body(body)
     cfg: dict[str, Any] = {"configurable": {"thread_id": body.thread_id or "default"}}
     try:
-        out = graph.invoke({"normalized": normalized}, config=cfg)
+        return invoke_or_interrupt(graph, {"normalized": normalized}, cfg)
     except Exception as e:
         raise HTTPException(502, detail=str(e)) from e
-    return {"state": out}
+
+
+def _thread_has_pending_interrupt(graph: Any, cfg: dict[str, Any]) -> bool:
+    """LangGraph only accepts ``Command(resume=...)`` while an ``interrupt()`` is pending."""
+    snap = graph.get_state(cfg)
+    return bool(snap.interrupts)
+
+
+@app.post("/v1/threads/{thread_id}/resume")
+def resume_investigation(thread_id: str, body: ResumeThreadRequest) -> dict[str, Any]:
+    """Resume a paused graph (same ``thread_id`` as ``/v1/investigations/run``)."""
+    graph = app.state.graph
+    cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    if not _thread_has_pending_interrupt(graph, cfg):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No pending human-in-the-loop interrupt for this thread. "
+                "Call POST /v1/threads/.../resume only after POST /v1/investigations/run "
+                "returned status awaiting_approval for the same thread_id, and ensure "
+                "require_human_approval is true in controller config."
+            ),
+        )
+    try:
+        return resume_thread(graph, body.resume, cfg)
+    except EmptyInputError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(502, detail=str(e)) from e
+
+
+@app.get("/v1/threads/{thread_id}/snapshot")
+def thread_snapshot(thread_id: str) -> dict[str, Any]:
+    """Debug: latest checkpoint values for a thread (optional)."""
+    graph = app.state.graph
+    cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    try:
+        snap = graph.get_state(cfg)
+    except Exception as e:
+        raise HTTPException(502, detail=str(e)) from e
+    return {"thread_id": thread_id, "values": snap.values, "next": snap.next}

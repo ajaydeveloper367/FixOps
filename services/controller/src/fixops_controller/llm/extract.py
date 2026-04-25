@@ -1,20 +1,75 @@
 """Schema-bound entity extraction (AD-002). Routing is never chosen by this LLM path."""
 
 import json
-import uuid
 from typing import Any
 
-import httpx
 from fixops_contract.entities import ExtractedEntity
 
+from fixops_controller.llm.client import chat_completion_json, llm_configured
 from fixops_controller.settings import settings
 
 
+def coalesce_extracted_from_normalized(
+    entity: ExtractedEntity, normalized: dict[str, Any]
+) -> ExtractedEntity:
+    """Fill blanks left by the LLM from ``normalized.raw`` (pod, namespace, labels, alertname)."""
+    raw = normalized.get("raw") or {}
+    raw_labels = {k: str(v) for k, v in (raw.get("labels") or {}).items() if v is not None}
+
+    name = (entity.entity_name or "").strip()
+    if not name:
+        name = (
+            _non_empty_str(raw.get("pod"))
+            or _non_empty_str(raw.get("service"))
+            or _non_empty_str(raw.get("deployment"))
+            or _non_empty_str(raw_labels.get("app"))
+            or _non_empty_str(raw.get("name"))
+            or "unknown"
+        )
+
+    et = (entity.entity_type or "").strip().lower()
+    if not et:
+        et = (_non_empty_str(raw_labels.get("entity_type")) or "pod").lower()
+
+    ns = entity.namespace
+    if ns is not None and not str(ns).strip():
+        ns = None
+    if ns is None:
+        ns = _non_empty_str(raw.get("namespace"))
+
+    ac = entity.alert_class
+    if ac is None or not str(ac).strip():
+        ac = _non_empty_str(raw.get("alertname")) or _non_empty_str(raw.get("alert_class"))
+
+    labels = dict(raw_labels)
+    for k, v in entity.labels.items():
+        vs = _non_empty_str(v)
+        if vs:
+            labels[k] = vs
+
+    return ExtractedEntity(
+        entity_type=et,
+        entity_name=name,
+        namespace=ns,
+        alert_class=ac,
+        labels=labels,
+    )
+
+
+def _non_empty_str(v: Any) -> str | None:
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
+
+
 def extract_entity_llm(normalized: dict[str, Any]) -> ExtractedEntity:
-    """Call shared LLM with strict JSON schema, or deterministic mock for CI."""
-    if settings.mock_llm:
-        return _mock_extract(normalized)
-    return _openai_compatible_extract(normalized)
+    """Call shared LLM with strict JSON schema, or deterministic mock for CI / no LLM config."""
+    if settings.mock_llm or not llm_configured():
+        ent = _mock_extract(normalized)
+    else:
+        ent = _openai_compatible_extract(normalized)
+    return coalesce_extracted_from_normalized(ent, normalized)
 
 
 def _mock_extract(normalized: dict[str, Any]) -> ExtractedEntity:
@@ -39,28 +94,18 @@ def _mock_extract(normalized: dict[str, Any]) -> ExtractedEntity:
 
 
 def _openai_compatible_extract(normalized: dict[str, Any]) -> ExtractedEntity:
-    if not settings.llm_api_key:
-        return _mock_extract(normalized)
-    url = (settings.llm_base_url or "https://api.openai.com/v1").rstrip("/") + "/chat/completions"
     schema_hint = ExtractedEntity.model_json_schema()
-    body = {
-        "model": settings.llm_model,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {
-                "role": "system",
-                "content": "Extract operational entity fields only. Output a single JSON object matching the schema keys: entity_type, entity_name, namespace, alert_class, labels.",
-            },
-            {"role": "user", "content": json.dumps(normalized)[:8000]},
-            {"role": "user", "content": f"JSON Schema: {json.dumps(schema_hint)[:4000]}"},
-        ],
-    }
-    headers = {"Authorization": f"Bearer {settings.llm_api_key}"}
-    rid = str(uuid.uuid4())
-    with httpx.Client(timeout=60.0) as client:
-        r = client.post(url, json=body, headers=headers)
-        r.raise_for_status()
-        data = r.json()
-        content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        return ExtractedEntity.model_validate(parsed)
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Extract operational entity fields only. Output a single JSON object with keys: "
+                "entity_type, entity_name, namespace, alert_class, labels. "
+                "Use null for unknown optional fields. labels must be an object with string values."
+            ),
+        },
+        {"role": "user", "content": json.dumps(normalized)[:8000]},
+        {"role": "user", "content": f"JSON Schema: {json.dumps(schema_hint)[:4000]}"},
+    ]
+    parsed = chat_completion_json(messages)
+    return ExtractedEntity.model_validate(parsed)

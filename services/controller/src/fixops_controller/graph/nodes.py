@@ -167,9 +167,52 @@ def node_rca(state: OpsState) -> dict[str, Any]:
 
 
 def node_await_approval(state: OpsState) -> dict[str, Any]:
-    """Human gate before executor (AD-003). Interrupt-before stops here when enabled."""
-    _log(state, "await_approval", {"pending": True, "environment": settings.environment})
-    return {"approval": {"status": "pending", "environment": settings.environment}}
+    """Human gate before executor (AD-003). Uses LangGraph interrupt() when require_human_approval is on."""
+    if settings.auto_approve_execute:
+        _log(state, "await_approval_auto", {"granted": True})
+        return {
+            "approval": {
+                "status": "auto_approved",
+                "granted": True,
+                "environment": settings.environment,
+            }
+        }
+    if not settings.require_human_approval:
+        _log(state, "await_approval_bypass", {"granted": True})
+        return {
+            "approval": {
+                "status": "bypass_dev",
+                "granted": True,
+                "environment": settings.environment,
+            }
+        }
+
+    from langgraph.types import interrupt
+
+    payload = {
+        "kind": "await_approval",
+        "investigation_id": state.get("investigation_id"),
+        "environment": settings.environment,
+        "rca_summary": (state.get("rca") or {}).get("summary"),
+        "confidence_band": state.get("confidence_band"),
+    }
+    decision = interrupt(payload)
+    granted = False
+    if isinstance(decision, dict):
+        granted = bool(decision.get("granted"))
+    _log(
+        state,
+        "await_approval_resolved",
+        {"granted": granted, "environment": settings.environment},
+    )
+    return {
+        "approval": {
+            "status": "approved" if granted else "rejected",
+            "granted": granted,
+            "environment": settings.environment,
+            "human": decision if isinstance(decision, dict) else {},
+        }
+    }
 
 
 def node_executor(state: OpsState) -> dict[str, Any]:

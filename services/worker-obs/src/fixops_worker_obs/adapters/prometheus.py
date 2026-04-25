@@ -16,13 +16,14 @@ class StubPrometheusAdapter:
 
 
 class HttpPrometheusAdapter:
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, query_path: str = "/api/v1/query") -> None:
         self._base = base_url.rstrip("/")
+        self._path = query_path if query_path.startswith("/") else f"/{query_path}"
 
     def query_instant(self, expr: str) -> dict[str, Any]:
         import httpx
 
-        url = f"{self._base}/api/v1/query"
+        url = f"{self._base}{self._path}"
         with httpx.Client(timeout=20.0) as c:
             r = c.get(url, params={"query": expr})
             r.raise_for_status()
@@ -32,6 +33,9 @@ class HttpPrometheusAdapter:
 def get_prometheus_adapter() -> PrometheusPort:
     from fixops_worker_obs.settings import settings
 
-    if settings.prometheus_url:
-        return HttpPrometheusAdapter(settings.prometheus_url)
+    if settings.prometheus_base_url:
+        return HttpPrometheusAdapter(
+            settings.prometheus_base_url,
+            query_path=settings.prometheus_query_path,
+        )
     return StubPrometheusAdapter()

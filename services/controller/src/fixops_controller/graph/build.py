@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langgraph.checkpoint.memory import MemorySaver
@@ -23,29 +24,58 @@ from fixops_controller.graph.nodes import (
 from fixops_controller.graph.state import OpsState
 from fixops_controller.settings import settings
 
+logger = logging.getLogger(__name__)
 
-def _postgres_checkpointer():
+# LangGraph PostgresSaver needs a long-lived pool (``from_conn_string`` is a short-lived context).
+_checkpoint_pool: Any = None
+
+
+def close_checkpoint_pool() -> None:
+    """Close the LangGraph Postgres pool (e.g. FastAPI shutdown). Safe to call multiple times."""
+    global _checkpoint_pool
+    if _checkpoint_pool is not None:
+        try:
+            _checkpoint_pool.close()
+        finally:
+            _checkpoint_pool = None
+
+
+def _postgres_checkpointer() -> Any:
+    global _checkpoint_pool
     try:
         from langgraph.checkpoint.postgres import PostgresSaver
-    except ImportError:
-        return None
+        from psycopg.rows import dict_row
+        from psycopg_pool import ConnectionPool
+    except ImportError as e:  # pragma: no cover
+        raise RuntimeError(
+            "checkpoint_backend=postgres requires langgraph checkpoint postgres and psycopg_pool"
+        ) from e
+
     conn = settings.database_url
     if conn.startswith("sqlite:"):
         return None
-    if conn.startswith("postgresql+asyncpg://"):
-        conn = conn.replace("postgresql+asyncpg://", "postgresql://", 1)
-    try:
-        saver = PostgresSaver.from_conn_string(conn)
-        saver.setup()
-        return saver
-    except Exception:
-        return None
+    sync_uri = conn
+    if sync_uri.startswith("postgresql+asyncpg://"):
+        sync_uri = sync_uri.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+    if _checkpoint_pool is not None:
+        try:
+            _checkpoint_pool.close()
+        except Exception:
+            logger.exception("while closing previous checkpoint pool")
+
+    _checkpoint_pool = ConnectionPool(
+        sync_uri,
+        min_size=1,
+        max_size=10,
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+    )
+    saver = PostgresSaver(_checkpoint_pool)
+    saver.setup()
+    return saver
 
 
-def build_compiled_graph(
-    use_postgres_checkpoint: bool | None = None,
-    interrupt_before_execute: bool | None = None,
-):
+def build_compiled_graph(use_postgres_checkpoint: bool | None = None):
     g = StateGraph(OpsState)
     g.add_node("normalize", node_normalize)
     g.add_node("extract", node_extract)
@@ -80,10 +110,10 @@ def build_compiled_graph(
         pg = _postgres_checkpointer()
         if pg is not None:
             checkpointer = pg
+        else:
+            raise RuntimeError(
+                "checkpoint_backend=postgres but database_url is sqlite or Postgres checkpointer "
+                "could not be created; use postgresql+asyncpg://... and see logs."
+            )
 
-    hitl = interrupt_before_execute
-    if hitl is None:
-        hitl = settings.environment == "production" and not settings.auto_approve_execute
-
-    ib: list[str] | bool = ["await_approval"] if hitl else False
-    return g.compile(checkpointer=checkpointer, interrupt_before=ib)
+    return g.compile(checkpointer=checkpointer)

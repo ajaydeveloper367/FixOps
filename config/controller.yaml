@@ -1,0 +1,26 @@
+# Controller only — deploy this service with its own ConfigMap / volume in another namespace.
+# Override path: FIXOPS_CONTROLLER_CONFIG=/absolute/path/to/controller.yaml
+# Env vars FIXOPS_* still override these keys when set.
+
+version: 1
+
+# Async URL for SQLAlchemy async + sync adapters; override password with FIXOPS_DATABASE_URL.
+database_url: "postgresql+asyncpg://fixops:fixops@127.0.0.1:5432/fixops"
+checkpoint_backend: postgres
+redis_url: null
+worker_obs_base_url: "http://127.0.0.1:8081"
+executor_url: "http://127.0.0.1:8082"
+routing_rules_path: "config/routing_rules.yaml"
+inventory_seed_path: "config/inventory.yaml"
+graph_seed_path: "config/graph_edges.yaml"
+# LLM: local Ollama (OpenAI-compatible). Set mock_llm: true for offline / no GPU.
+mock_llm: false
+llm_base_url: "http://127.0.0.1:11434/v1"
+llm_model: "llama3.2:latest"
+# Ollama ignores the value but our client sends Bearer only when set; use any non-empty string if needed.
+llm_api_key: "ollama"
+llm_use_json_response_format: false
+auto_approve_execute: false
+# Set true in prod so POST /v1/investigations/run pauses until POST .../resume with { "resume": { "granted": true } }.
+require_human_approval: true
+environment: development
