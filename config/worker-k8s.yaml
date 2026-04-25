@@ -4,6 +4,11 @@
 
 version: 1
 credentials_backend: local_map
+# Supported credential backends:
+# - local_map: resolve from `clusters` (cluster_id) then `credential_refs` (credentials_ref key)
+# - env_json: resolve from JSON map in env var FIXOPS_WORKER_K8S_CREDENTIALS_JSON
+# - file_json: resolve from JSON map file path in credentials_file
+# credentials_file: "/etc/fixops/worker-k8s-credentials.json"
 default_cluster_id: local
 
 # Local credentials map by cluster_id. Worker resolves this map internally.
@@ -11,3 +16,8 @@ clusters:
   local:
     kubeconfig_path: "~/.kube/config"
     # context: "kind-kind"
+
+# Optional references map when controller sends credentials_ref (refs only).
+# credential_refs:
+#   "ref:dev-eks":
+#     kubeconfig_path: "~/.kube/dev-eks-config"

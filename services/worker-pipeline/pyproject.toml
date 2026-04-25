@@ -1,0 +1,16 @@
+[project]
+name = "fixops-worker-pipeline"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fixops-contract",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.scripts]
+fixops-worker-pipeline = "fixops_worker_pipeline.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

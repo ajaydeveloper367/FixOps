@@ -7,6 +7,7 @@ from typing import Any, Callable
 from fixops_contract.ad006 import WorkerInvestigateRequest, WorkerResult
 
 from fixops_worker_k8s.adapters.kubernetes import KubernetesPort, build_kubernetes_adapter
+from fixops_worker_k8s.credentials import resolve_credentials
 from fixops_worker_k8s.settings import settings
 
 
@@ -44,6 +45,7 @@ def _rbac_result(req: WorkerInvestigateRequest, cluster_id: str, namespace: str,
 
 def _no_credentials_result(req: WorkerInvestigateRequest, cluster_id: str | None) -> WorkerResult:
     wanted = cluster_id or "<missing>"
+    cref = (req.credentials_ref or "").strip()
     return WorkerResult(
         checked=["cluster credentials resolution"],
         findings=[
@@ -52,10 +54,12 @@ def _no_credentials_result(req: WorkerInvestigateRequest, cluster_id: str | None
                 "Worker stores creds locally and maps by cluster_id."
             )
         ],
-        evidence_refs=[f"k8s:credentials:{wanted}"],
+        evidence_refs=[f"k8s:credentials:{wanted}", f"k8s:credentials_ref:{cref or '<none>'}"],
         ruled_out=[],
         confidence=0.1,
-        next_suggested_check="Add this cluster_id under config/worker-k8s.yaml clusters map",
+        next_suggested_check=(
+            "Configure worker-k8s credentials backend mapping (cluster_id and/or credentials_ref)"
+        ),
     )
 
 
@@ -82,7 +86,7 @@ def investigate(
     cluster_id = _resolve_cluster_id(req)
     if not cluster_id:
         return _no_credentials_result(req, None)
-    creds = (settings.clusters or {}).get(cluster_id)
+    creds = resolve_credentials(cluster_id, req.credentials_ref)
     if not creds:
         return _no_credentials_result(req, cluster_id)
 

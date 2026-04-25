@@ -10,6 +10,9 @@ checkpoint_backend: postgres
 redis_url: null
 worker_obs_base_url: "http://127.0.0.1:8081"
 worker_k8s_base_url: "http://127.0.0.1:8083"
+worker_pipeline_base_url: "http://127.0.0.1:8084"
+worker_db_base_url: "http://127.0.0.1:8085"
+worker_app_rca_base_url: "http://127.0.0.1:8086"
 executor_url: "http://127.0.0.1:8082"
 routing_rules_path: "config/routing_rules.yaml"
 inventory_seed_path: "config/inventory.yaml"
@@ -21,6 +24,17 @@ llm_model: "llama3.2:latest"
 # Ollama ignores the value but our client sends Bearer only when set; use any non-empty string if needed.
 llm_api_key: "ollama"
 llm_use_json_response_format: true
+max_investigation_stages: 3
+stage1_token_budget: 3000
+stage2_token_budget: 2200
+stage3_token_budget: 1400
+stage1_tool_call_budget: 8
+stage2_tool_call_budget: 6
+stage3_tool_call_budget: 4
+confidence_high_threshold: 0.85
+confidence_low_threshold: 0.50
+rag_top_k: 3
+rag_char_budget: 1200
 auto_approve_execute: false
 # Set true in prod so POST /v1/investigations/run pauses until POST .../resume with { "resume": { "granted": true } }.
 require_human_approval: true

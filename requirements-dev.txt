@@ -4,6 +4,9 @@
 -e services/controller
 -e services/worker-obs
 -e services/worker-k8s
+-e services/worker-pipeline
+-e services/worker-db
+-e services/worker-app-rca
 -e services/executor
 -e services/mcp-fixops-obs
 pytest>=8.0

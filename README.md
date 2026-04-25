@@ -18,6 +18,7 @@ Env vars `FIXOPS_*` / `FIXOPS_WORKER_*` still **override** YAML when set. Each c
 - `context/comparison/DECISIONS.md` (AD-001 … AD-014)
 - `.cursor/rules/fixops-agentic-northstar.mdc`
 - `context/comparison/fixops-architecture-master.html`
+- `context/comparison/MCP_ADAPTER_STRATEGY.md` (AD-011 / AD-007 integration mode policy)
 
 ## Quick start (recommended): project `.venv` + `uv`
 
@@ -61,6 +62,24 @@ Fallback without `uv`: `pip install -r requirements-dev.txt` (same editable pack
 
 Use `uv run` so commands always use the project `.venv`.
 
+### Service helper script
+
+You can manage controller + workers from repo root:
+
+```bash
+bash ./fixops-services.sh start
+bash ./fixops-services.sh status
+bash ./fixops-services.sh stop
+```
+
+For one service only (example):
+
+```bash
+bash ./fixops-services.sh status worker-k8s
+```
+
+`status` prints `running(managed)` when started by the script, and `running(unmanaged)` if a process is already listening on the port from another terminal.
+
 **Terminal 1 — worker-obs (AD-006):** reads `config/worker-obs.yaml` (Prometheus JSON API: `http://localhost:6060` + `/api/v1/query` — not `/query`, which is the HTML UI). Optional Loki (`http://localhost:6061`) and Grafana (`http://localhost:6062`) checks are included when configured. Run from repo root or set `FIXOPS_WORKER_OBS_CONFIG`. For pods, `/investigate` tries several instant Prometheus queries in order (`up{namespace=…}`, `job` from `labels.app`, `namespace=default`, then `count(up)`), then augments findings with Loki/Grafana health when available.
 
 ```bash
@@ -79,7 +98,25 @@ uv run uvicorn fixops_worker_k8s.app:app --host 127.0.0.1 --port 8083
 uv run uvicorn fixops_executor.app:app --host 127.0.0.1 --port 8082
 ```
 
-**Terminal 4 — controller (no LLM — mock extract + mock RCA):**
+**Terminal 4 — worker-pipeline (stub AD-006):**
+
+```bash
+uv run uvicorn fixops_worker_pipeline.app:app --host 127.0.0.1 --port 8084
+```
+
+**Terminal 5 — worker-db (stub AD-006):**
+
+```bash
+uv run uvicorn fixops_worker_db.app:app --host 127.0.0.1 --port 8085
+```
+
+**Terminal 6 — worker-app-rca (stub AD-006):**
+
+```bash
+uv run uvicorn fixops_worker_app_rca.app:app --host 127.0.0.1 --port 8086
+```
+
+**Terminal 7 — controller (no LLM — mock extract + mock RCA):**
 
 ```bash
 export FIXOPS_MOCK_LLM=1
@@ -90,7 +127,7 @@ export FIXOPS_ROUTING_RULES_PATH="$(pwd)/config/routing_rules.yaml"
 uv run uvicorn fixops_controller.api.app:app --host 127.0.0.1 --port 8080
 ```
 
-**Terminal 4 — controller (local LLM, e.g. Ollama OpenAI-compatible API):**
+**Terminal 7 — controller (local LLM, e.g. Ollama OpenAI-compatible API):**
 
 ```bash
 export FIXOPS_MOCK_LLM=0
@@ -186,9 +223,12 @@ Override the URL or password with **`FIXOPS_DATABASE_URL`** (see `config/control
 
 ## Workers today and next steps
 
-**Workers implemented as separate HTTP services today: two**
+**Workers implemented as separate HTTP services today: five**
 - `services/worker-obs` (`worker-obs`, observability / Prometheus-shaped checks, AD-006)
 - `services/worker-k8s` (`worker-k8s`, Kubernetes pod snapshots by namespace / cluster_id, AD-006)
+- `services/worker-pipeline` (`worker-pipeline`, pipeline-oriented stub, AD-006)
+- `services/worker-db` (`worker-db`, database-oriented stub, AD-006)
+- `services/worker-app-rca` (`worker-app-rca`, app RCA-oriented stub, AD-006)
 
 Also in the repo (not counted as domain workers): **`services/executor`** (post-approval mutations only) and **`services/mcp-fixops-obs`** (tool surface, MCP).
 
@@ -228,6 +268,9 @@ Optional MCP image: `docker compose --profile mcp up mcp-fixops-obs`.
 | `services/controller` | LangGraph graph, routing, API, decision log |
 | `services/worker-obs` | Observability worker (Prometheus adapter / stub) |
 | `services/worker-k8s` | Kubernetes worker (cluster_id-mapped creds, pod snapshot checks) |
+| `services/worker-pipeline` | Pipeline worker stub (AD-006 contract) |
+| `services/worker-db` | Database worker stub (AD-006 contract) |
+| `services/worker-app-rca` | Application RCA worker stub (AD-006 contract) |
 | `services/mcp-fixops-obs` | stdio MCP (`prometheus_query`) |
 | `services/executor` | Approved actions only (stub) |
 | `config/` | `controller.yaml`, `worker-obs.yaml`, `worker-k8s.yaml`, `routing_rules.yaml`, `inventory.yaml`, `graph_edges.yaml` |

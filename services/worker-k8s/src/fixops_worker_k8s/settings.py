@@ -10,8 +10,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FIXOPS_WORKER_K8S_", extra="ignore")
 
     credentials_backend: str = "local_map"
+    credentials_env_var: str = "FIXOPS_WORKER_K8S_CREDENTIALS_JSON"
+    credentials_file: str | None = None
     default_cluster_id: str | None = "local"
     clusters: dict[str, dict[str, str]] = Field(default_factory=dict)
+    credential_refs: dict[str, dict[str, str]] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod

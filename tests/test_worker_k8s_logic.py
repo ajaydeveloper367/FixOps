@@ -25,8 +25,10 @@ class _FakeK8s:
 
 
 def test_investigate_missing_credentials(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "credentials_backend", "local_map")
     monkeypatch.setattr(settings, "default_cluster_id", "local")
     monkeypatch.setattr(settings, "clusters", {})
+    monkeypatch.setattr(settings, "credential_refs", {})
     req = WorkerInvestigateRequest(
         investigation_id="i1",
         entity_type="service",
@@ -39,8 +41,10 @@ def test_investigate_missing_credentials(monkeypatch) -> None:
 
 
 def test_investigate_rbac_error(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "credentials_backend", "local_map")
     monkeypatch.setattr(settings, "default_cluster_id", "local")
     monkeypatch.setattr(settings, "clusters", {"local": {"kubeconfig_path": "~/.kube/config"}})
+    monkeypatch.setattr(settings, "credential_refs", {})
     req = WorkerInvestigateRequest(
         investigation_id="i1",
         entity_type="service",
@@ -57,8 +61,10 @@ def test_investigate_rbac_error(monkeypatch) -> None:
 
 
 def test_investigate_counts_running_and_failing(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "credentials_backend", "local_map")
     monkeypatch.setattr(settings, "default_cluster_id", "local")
     monkeypatch.setattr(settings, "clusters", {"local": {"kubeconfig_path": "~/.kube/config"}})
+    monkeypatch.setattr(settings, "credential_refs", {})
     pods = [
         {"name": "a", "phase": "Running", "restart_count": 0, "waiting_reasons": []},
         {"name": "b", "phase": "Pending", "restart_count": 0, "waiting_reasons": []},
@@ -76,3 +82,25 @@ def test_investigate_counts_running_and_failing(monkeypatch) -> None:
     assert "running=2" in text
     assert "failing=1" in text
     assert any("CrashLoopBackOff" in f for f in out.findings)
+
+
+def test_investigate_uses_credentials_ref_mapping(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "credentials_backend", "local_map")
+    monkeypatch.setattr(settings, "default_cluster_id", "local")
+    monkeypatch.setattr(settings, "clusters", {})
+    monkeypatch.setattr(
+        settings,
+        "credential_refs",
+        {"ref:dev-eks": {"kubeconfig_path": "~/.kube/dev-eks-config"}},
+    )
+    pods = [{"name": "a", "phase": "Running", "restart_count": 0, "waiting_reasons": []}]
+    req = WorkerInvestigateRequest(
+        investigation_id="i1",
+        entity_type="service",
+        entity_name="cluster-query",
+        namespace="monitoring",
+        cluster_id="dev-eks",
+        credentials_ref="ref:dev-eks",
+    )
+    out = investigate(req, adapter_factory=lambda _: _FakeK8s(pods))
+    assert out.confidence >= 0.8

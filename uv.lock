@@ -8,8 +8,11 @@ members = [
     "fixops-contract",
     "fixops-controller",
     "fixops-executor",
+    "fixops-worker-app-rca",
+    "fixops-worker-db",
     "fixops-worker-k8s",
     "fixops-worker-obs",
+    "fixops-worker-pipeline",
     "mcp-fixops-obs",
 ]
 
@@ -382,8 +385,11 @@ dependencies = [
     { name = "fixops-contract" },
     { name = "fixops-controller" },
     { name = "fixops-executor" },
+    { name = "fixops-worker-app-rca" },
+    { name = "fixops-worker-db" },
     { name = "fixops-worker-k8s" },
     { name = "fixops-worker-obs" },
+    { name = "fixops-worker-pipeline" },
 ]
 
 [package.dev-dependencies]
@@ -401,8 +407,11 @@ requires-dist = [
     { name = "fixops-contract", editable = "packages/fixops-contract" },
     { name = "fixops-controller", editable = "services/controller" },
     { name = "fixops-executor", editable = "services/executor" },
+    { name = "fixops-worker-app-rca", editable = "services/worker-app-rca" },
+    { name = "fixops-worker-db", editable = "services/worker-db" },
     { name = "fixops-worker-k8s", editable = "services/worker-k8s" },
     { name = "fixops-worker-obs", editable = "services/worker-obs" },
+    { name = "fixops-worker-pipeline", editable = "services/worker-pipeline" },
 ]
 
 [package.metadata.requires-dev]
@@ -492,6 +501,40 @@ requires-dist = [
 ]
 
 [[package]]
+name = "fixops-worker-app-rca"
+version = "0.1.0"
+source = { editable = "services/worker-app-rca" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "fixops-contract" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fixops-contract", editable = "packages/fixops-contract" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "fixops-worker-db"
+version = "0.1.0"
+source = { editable = "services/worker-db" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "fixops-contract" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fixops-contract", editable = "packages/fixops-contract" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
 name = "fixops-worker-k8s"
 version = "0.1.0"
 source = { editable = "services/worker-k8s" }
@@ -530,6 +573,23 @@ requires-dist = [
     { name = "fixops-contract", editable = "packages/fixops-contract" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic-settings", specifier = ">=2.2" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+]
+
+[[package]]
+name = "fixops-worker-pipeline"
+version = "0.1.0"
+source = { editable = "services/worker-pipeline" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "fixops-contract" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fixops-contract", editable = "packages/fixops-contract" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 

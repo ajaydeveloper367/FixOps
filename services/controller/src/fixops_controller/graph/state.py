@@ -12,6 +12,7 @@ class OpsState(TypedDict, total=False):
     staged_context: dict[str, Any]
     worker_results: list[dict[str, Any]]
     merged: dict[str, Any]
+    rag_context: list[dict[str, Any]]
     confidence_band: str
     escalate: bool
     rca: dict[str, Any]

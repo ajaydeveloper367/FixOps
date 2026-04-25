@@ -5,6 +5,15 @@ rules:
       alert_class: HighErrorRate
     worker_id: worker-obs
   - match:
+      alert_class: PipelineFailure
+    worker_id: worker-pipeline
+  - match:
+      alert_class: DatabaseLatency
+    worker_id: worker-db
+  - match:
+      alert_class: AppRegression
+    worker_id: worker-app-rca
+  - match:
       alert_class: AdHocQuery
     worker_id: worker-k8s
   - match:

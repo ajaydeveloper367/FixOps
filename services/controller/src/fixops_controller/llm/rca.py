@@ -20,7 +20,8 @@ def synthesize_rca(
             "content": (
                 "Produce a single JSON object with keys: summary, root_cause_hypothesis, "
                 "evidence_chain (object, echo the input evidence_chain), recommended_next_steps (array of strings). "
-                "Use only the structured evidence provided; do not invent log lines or secret values."
+                "Use only the structured evidence provided, including institutional_context snippets when present; "
+                "do not invent log lines or secret values."
             ),
         },
         {

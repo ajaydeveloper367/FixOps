@@ -98,3 +98,65 @@ def test_graph_query_intent_fixture(graph_mocks, repo_root: Path):
     out = g.invoke({"normalized": normalized}, config={"configurable": {"thread_id": "test-query"}})
     assert out["extracted"]["entity_name"] == "checkout-api"
     assert out["route"]["worker_id"] == "worker-obs"
+
+
+@respx.mock
+def test_graph_escalates_until_stage_cap_when_confidence_not_high(graph_mocks, repo_root: Path):
+    # Medium confidence (< high threshold) should trigger staged re-checks until max stage.
+    respx.post("http://worker.test/investigate").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "checked": ["prometheus instant query: up{job=\"checkout-api\"}"],
+                "findings": ["Found 1 series for selector"],
+                "evidence_refs": ["prom:query:up{job=\"checkout-api\"}"],
+                "ruled_out": [],
+                "confidence": 0.72,
+                "next_suggested_check": "re-check with broader context",
+            },
+        )
+    )
+    respx.post("http://executor.test/execute").mock(
+        return_value=httpx.Response(200, json={"status": "accepted", "executed": []}),
+    )
+    raw = json.loads((repo_root / "fixtures" / "alert_pod_crash.json").read_text())
+    g = build_compiled_graph()
+    out = g.invoke({"normalized": raw}, config={"configurable": {"thread_id": "test-escalate"}})
+    assert out["stage"] == settings.max_investigation_stages
+    assert len(out["worker_results"]) == settings.max_investigation_stages
+    assert out["confidence_band"] in {"medium", "low"}
+
+
+@respx.mock
+def test_graph_sends_credentials_ref_only_to_worker(graph_mocks, repo_root: Path):
+    route = respx.post("http://worker.test/investigate").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "checked": ["x"],
+                "findings": ["ok"],
+                "evidence_refs": ["e1"],
+                "ruled_out": [],
+                "confidence": 0.9,
+                "next_suggested_check": None,
+            },
+        )
+    )
+    respx.post("http://executor.test/execute").mock(
+        return_value=httpx.Response(200, json={"status": "accepted", "executed": []}),
+    )
+    raw = {
+        "source": "alert",
+        "environment": "development",
+        "raw": {
+            "alertname": "HighErrorRate",
+            "service": "checkout-api",
+            "namespace": "prod",
+            "labels": {"entity_type": "service"},
+        },
+    }
+    g = build_compiled_graph()
+    g.invoke({"normalized": raw}, config={"configurable": {"thread_id": "test-creds-ref"}})
+    req_body = json.loads(route.calls[0].request.content.decode())
+    assert req_body["credentials_ref"] == "ref:dev-eks"
+    assert "kubeconfig_path" not in json.dumps(req_body)

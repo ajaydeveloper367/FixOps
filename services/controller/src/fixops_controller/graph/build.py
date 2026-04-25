@@ -20,6 +20,7 @@ from fixops_controller.graph.nodes import (
     node_route,
     node_stage_context,
     route_after_approval,
+    route_after_confidence,
 )
 from fixops_controller.graph.state import OpsState
 from fixops_controller.settings import settings
@@ -95,7 +96,11 @@ def build_compiled_graph(use_postgres_checkpoint: bool | None = None):
     g.add_edge("stage_context", "invoke_worker")
     g.add_edge("invoke_worker", "merge")
     g.add_edge("merge", "confidence")
-    g.add_edge("confidence", "rca")
+    g.add_conditional_edges(
+        "confidence",
+        route_after_confidence,
+        {"stage_context": "stage_context", "rca": "rca"},
+    )
     g.add_edge("rca", "await_approval")
     g.add_conditional_edges(
         "await_approval",
