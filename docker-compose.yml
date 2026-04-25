@@ -20,6 +20,13 @@ services:
     ports:
       - "8081:8081"
 
+  worker-k8s:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.worker-k8s
+    ports:
+      - "8083:8083"
+
   executor:
     build:
       context: .
@@ -38,6 +45,8 @@ services:
         condition: service_healthy
       worker-obs:
         condition: service_started
+      worker-k8s:
+        condition: service_started
       executor:
         condition: service_started
     environment:
@@ -45,6 +54,7 @@ services:
       FIXOPS_CHECKPOINT_BACKEND: postgres
       FIXOPS_MOCK_LLM: "1"
       FIXOPS_WORKER_OBS_BASE_URL: http://worker-obs:8081
+      FIXOPS_WORKER_K8S_BASE_URL: http://worker-k8s:8083
       FIXOPS_EXECUTOR_URL: http://executor:8082
       FIXOPS_ROUTING_RULES_PATH: /app/config/routing_rules.yaml
       FIXOPS_INVENTORY_SEED_PATH: /app/config/inventory.yaml

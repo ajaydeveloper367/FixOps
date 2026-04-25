@@ -63,3 +63,26 @@ def test_high_error_rate_rule_overrides_default():
     d2 = resolve_route(extracted, routing, inv, reg)
     assert d1.worker_id == d2.worker_id == "worker-obs"
     assert d1.cluster_id == "dev-eks"
+
+
+def test_adhoc_query_routes_to_worker_k8s():
+    extracted = ExtractedEntity(
+        entity_type="service",
+        entity_name="cluster-query",
+        alert_class="AdHocQuery",
+        labels={"intent": "observability_question"},
+    )
+    routing = {
+        "default_worker_id": "worker-obs",
+        "rules": [
+            {"match": {"alert_class": "AdHocQuery"}, "worker_id": "worker-k8s"},
+        ],
+    }
+    inv = []
+    reg = {
+        "worker-obs": "http://obs:8081",
+        "worker-k8s": "http://k8s:8083",
+    }
+    d = resolve_route(extracted, routing, inv, reg)
+    assert d.worker_id == "worker-k8s"
+    assert d.worker_base_url == "http://k8s:8083"

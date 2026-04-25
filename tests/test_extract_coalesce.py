@@ -114,3 +114,27 @@ def test_sanitize_llm_extracted_strips_null_and_empty_label_keys() -> None:
     assert "" not in ent.labels
     assert "nested" in ent.labels
     assert "k" in ent.labels["nested"]
+
+
+def test_extract_query_uses_synthetic_alert_without_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fixops_controller.llm.extract import extract_entity_llm
+    from fixops_controller.settings import settings
+
+    monkeypatch.setattr(settings, "mock_llm", False)
+    normalized = {
+        "source": "query",
+        "raw": {
+            "summary": "pods in local cluster",
+            "synthetic_alert": {
+                "entity_type": "service",
+                "entity_name": "",
+                "namespace": "monitoring",
+                "alert_class": "",
+                "labels": {"cluster_id": "local"},
+            },
+        },
+    }
+    out = extract_entity_llm(normalized)
+    assert out.entity_name == "cluster-query"
+    assert out.alert_class == "AdHocQuery"
+    assert out.labels["cluster_id"] == "local"

@@ -8,6 +8,7 @@ Rules-first incident investigation: **one LangGraph controller**, **standalone H
 |------|---------|
 | `config/controller.yaml` | Controller only — override path with `FIXOPS_CONTROLLER_CONFIG` |
 | `config/worker-obs.yaml` | `worker-obs` only — override path with `FIXOPS_WORKER_OBS_CONFIG` |
+| `config/worker-k8s.yaml` | `worker-k8s` only — override path with `FIXOPS_WORKER_K8S_CONFIG` |
 
 Env vars `FIXOPS_*` / `FIXOPS_WORKER_*` still **override** YAML when set. Each container can mount **only its** YAML (or bake it into the image).
 
@@ -60,29 +61,36 @@ Fallback without `uv`: `pip install -r requirements-dev.txt` (same editable pack
 
 Use `uv run` so commands always use the project `.venv`.
 
-**Terminal 1 — worker (AD-006):** reads `config/worker-obs.yaml` (Prometheus JSON API: `http://localhost:6060` + `/api/v1/query` — not `/query`, which is the HTML UI). Run from repo root or set `FIXOPS_WORKER_OBS_CONFIG`. For pods, `/investigate` tries several instant queries in order (`up{namespace=…}`, `job` from `labels.app`, `namespace=default`, then `count(up)`) so local dev still gets a signal when alert namespaces do not match scrape labels.
+**Terminal 1 — worker-obs (AD-006):** reads `config/worker-obs.yaml` (Prometheus JSON API: `http://localhost:6060` + `/api/v1/query` — not `/query`, which is the HTML UI). Optional Loki (`http://localhost:6061`) and Grafana (`http://localhost:6062`) checks are included when configured. Run from repo root or set `FIXOPS_WORKER_OBS_CONFIG`. For pods, `/investigate` tries several instant Prometheus queries in order (`up{namespace=…}`, `job` from `labels.app`, `namespace=default`, then `count(up)`), then augments findings with Loki/Grafana health when available.
 
 ```bash
 uv run uvicorn fixops_worker_obs.app:app --host 127.0.0.1 --port 8081
 ```
 
-**Terminal 2 — executor (stub):**
+**Terminal 2 — worker-k8s (AD-006):** reads `config/worker-k8s.yaml` and resolves local credentials by `cluster_id` (`controller` passes refs only). If `cluster_id` is unknown or RBAC forbids access, worker-k8s returns explicit findings instead of crashing.
+
+```bash
+uv run uvicorn fixops_worker_k8s.app:app --host 127.0.0.1 --port 8083
+```
+
+**Terminal 3 — executor (stub):**
 
 ```bash
 uv run uvicorn fixops_executor.app:app --host 127.0.0.1 --port 8082
 ```
 
-**Terminal 3 — controller (no LLM — mock extract + mock RCA):**
+**Terminal 4 — controller (no LLM — mock extract + mock RCA):**
 
 ```bash
 export FIXOPS_MOCK_LLM=1
 export FIXOPS_WORKER_OBS_BASE_URL=http://127.0.0.1:8081
+export FIXOPS_WORKER_K8S_BASE_URL=http://127.0.0.1:8083
 export FIXOPS_EXECUTOR_URL=http://127.0.0.1:8082
 export FIXOPS_ROUTING_RULES_PATH="$(pwd)/config/routing_rules.yaml"
 uv run uvicorn fixops_controller.api.app:app --host 127.0.0.1 --port 8080
 ```
 
-**Terminal 3 — controller (local LLM, e.g. Ollama OpenAI-compatible API):**
+**Terminal 4 — controller (local LLM, e.g. Ollama OpenAI-compatible API):**
 
 ```bash
 export FIXOPS_MOCK_LLM=0
@@ -178,13 +186,15 @@ Override the URL or password with **`FIXOPS_DATABASE_URL`** (see `config/control
 
 ## Workers today and next steps
 
-**Workers implemented as separate HTTP services today: one** — `services/worker-obs` (`worker-obs`, observability / Prometheus-shaped checks, AD-006).
+**Workers implemented as separate HTTP services today: two**
+- `services/worker-obs` (`worker-obs`, observability / Prometheus-shaped checks, AD-006)
+- `services/worker-k8s` (`worker-k8s`, Kubernetes pod snapshots by namespace / cluster_id, AD-006)
 
 Also in the repo (not counted as domain workers): **`services/executor`** (post-approval mutations only) and **`services/mcp-fixops-obs`** (tool surface, MCP).
 
 **Reasonable next steps (architecture order):**
 
-1. **Second domain worker** — e.g. `worker-k8s` (events/pods) behind an adapter or MCP; register in `routing_rules.yaml` + controller env registry.
+1. **Kubernetes depth** — enrich worker-k8s (events, node conditions, rollout status) behind the same AD-006 contract.
 2. **HIL polish** — auth on `POST /v1/threads/{thread_id}/resume`, approval audit store, richer interrupt payload.
 3. **Real observability** — tune `config/worker-obs.yaml` (or env) for Prometheus/Loki; optionally MCP from the worker.
 4. **RAG (AD-009)** — bounded chunks into RCA stage; pgvector or BM25 in Postgres.
@@ -217,9 +227,10 @@ Optional MCP image: `docker compose --profile mcp up mcp-fixops-obs`.
 | `packages/fixops-contract` | Pydantic AD-006 + ingress types |
 | `services/controller` | LangGraph graph, routing, API, decision log |
 | `services/worker-obs` | Observability worker (Prometheus adapter / stub) |
+| `services/worker-k8s` | Kubernetes worker (cluster_id-mapped creds, pod snapshot checks) |
 | `services/mcp-fixops-obs` | stdio MCP (`prometheus_query`) |
 | `services/executor` | Approved actions only (stub) |
-| `config/` | `controller.yaml`, `worker-obs.yaml`, `routing_rules.yaml`, `inventory.yaml`, `graph_edges.yaml` |
+| `config/` | `controller.yaml`, `worker-obs.yaml`, `worker-k8s.yaml`, `routing_rules.yaml`, `inventory.yaml`, `graph_edges.yaml` |
 | `fixtures/` | Sample alert + query-intent JSON |
 
 ## Add a worker

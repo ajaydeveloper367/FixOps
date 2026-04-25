@@ -5,6 +5,9 @@ rules:
       alert_class: HighErrorRate
     worker_id: worker-obs
   - match:
+      alert_class: AdHocQuery
+    worker_id: worker-k8s
+  - match:
       entity_type: service
     worker_id: worker-obs
   - match:

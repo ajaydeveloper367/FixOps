@@ -15,6 +15,13 @@ def _env(default_environment: str | None) -> str:
     return (default_environment or settings.environment or "development").strip()
 
 
+def _non_empty(v: Any) -> str | None:
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
+
+
 def _mock_plan(
     *,
     message: str | None,
@@ -42,6 +49,10 @@ def _mock_plan(
         m = re.search(r"namespace\s+(\S+)", lower)
         if m:
             ns = m.group(1).rstrip(".,;")
+        cluster_id = "local" if "local cluster" in lower or "cluster local" in lower else None
+        labels: dict[str, str] = {"intent": "observability_question"}
+        if cluster_id:
+            labels["cluster_id"] = cluster_id
         return {
             "source": "query",
             "environment": env,
@@ -53,7 +64,7 @@ def _mock_plan(
                     "entity_name": "cluster-query",
                     "namespace": ns,
                     "alert_class": "AdHocQuery",
-                    "labels": {"intent": "observability_question"},
+                    "labels": labels,
                 },
             },
         }
@@ -117,6 +128,7 @@ def _llm_plan(
                 "For source=query, raw MUST include: session_id (UUID string), summary (short string), "
                 "synthetic_alert: { entity_type, entity_name, namespace|null, alert_class, labels } "
                 "so downstream extraction can route to workers.\n"
+                "For natural-language ad-hoc ops questions, set synthetic_alert.alert_class to AdHocQuery.\n"
                 "Infer missing optional fields as null or empty object; never invent secrets."
             ),
         },
@@ -147,10 +159,23 @@ def finalize_planned_normalized(
         syn = raw.get("synthetic_alert")
         if not isinstance(syn, dict):
             syn = {}
-        syn.setdefault("entity_type", "service")
-        syn.setdefault("entity_name", "unknown")
-        syn.setdefault("alert_class", "QuerySynthetic")
-        syn.setdefault("labels", {})
+        syn["entity_type"] = _non_empty(syn.get("entity_type")) or "service"
+        syn["entity_name"] = _non_empty(syn.get("entity_name")) or "cluster-query"
+        syn["alert_class"] = _non_empty(syn.get("alert_class")) or "AdHocQuery"
+        labels = syn.get("labels")
+        if not isinstance(labels, dict):
+            labels = {}
+        labels_out: dict[str, str] = {}
+        for k, v in labels.items():
+            ks = _non_empty(k)
+            vs = _non_empty(v)
+            if ks and vs:
+                labels_out[ks] = vs
+        # Planner is best-effort; help local demos by deriving cluster hint from question text.
+        summary_l = str(raw.get("summary") or "").lower()
+        if "local cluster" in summary_l and "cluster_id" not in labels_out:
+            labels_out["cluster_id"] = "local"
+        syn["labels"] = labels_out
         raw["synthetic_alert"] = syn
     else:
         raw.setdefault("labels", {})

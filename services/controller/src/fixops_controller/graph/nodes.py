@@ -50,6 +50,7 @@ def node_route(state: OpsState) -> dict[str, Any]:
     inv_rows = list_inventory_entities_sync()
     worker_registry = {
         "worker-obs": settings.worker_obs_base_url,
+        "worker-k8s": settings.worker_k8s_base_url,
     }
     decision = resolve_route(extracted, routing, inv_rows, worker_registry)
     route = {

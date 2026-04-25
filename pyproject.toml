@@ -8,6 +8,7 @@ dependencies = [
     "fixops-contract",
     "fixops-controller",
     "fixops-worker-obs",
+    "fixops-worker-k8s",
     "fixops-executor",
 ]
 
@@ -20,6 +21,7 @@ members = [
     "packages/fixops-contract",
     "services/controller",
     "services/worker-obs",
+    "services/worker-k8s",
     "services/mcp-fixops-obs",
     "services/executor",
 ]
@@ -28,6 +30,7 @@ members = [
 fixops-contract = { workspace = true }
 fixops-controller = { workspace = true }
 fixops-worker-obs = { workspace = true }
+fixops-worker-k8s = { workspace = true }
 fixops-executor = { workspace = true }
 mcp-fixops-obs = { workspace = true }
 
@@ -44,7 +47,7 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-pythonpath = ["services/controller/src", "packages/fixops-contract/src", "services/worker-obs/src", "services/executor/src"]
+pythonpath = ["services/controller/src", "packages/fixops-contract/src", "services/worker-obs/src", "services/worker-k8s/src", "services/executor/src"]
 markers = [
     "integration: live services (Prometheus from config/worker-obs.yaml; skips if unreachable)",
 ]

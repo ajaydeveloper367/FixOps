@@ -9,6 +9,7 @@ database_url: "postgresql+asyncpg://fixops:fixops@127.0.0.1:5432/fixops"
 checkpoint_backend: postgres
 redis_url: null
 worker_obs_base_url: "http://127.0.0.1:8081"
+worker_k8s_base_url: "http://127.0.0.1:8083"
 executor_url: "http://127.0.0.1:8082"
 routing_rules_path: "config/routing_rules.yaml"
 inventory_seed_path: "config/inventory.yaml"

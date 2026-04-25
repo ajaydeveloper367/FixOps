@@ -21,6 +21,7 @@ def graph_mocks(monkeypatch: pytest.MonkeyPatch, repo_root: Path):
     monkeypatch.setattr(settings, "auto_approve_execute", False)
     monkeypatch.setattr(settings, "require_human_approval", False)
     monkeypatch.setattr(settings, "worker_obs_base_url", "http://worker.test")
+    monkeypatch.setattr(settings, "worker_k8s_base_url", "http://worker.test")
     monkeypatch.setattr(settings, "executor_url", "http://executor.test")
     monkeypatch.setattr(settings, "routing_rules_path", str(repo_root / "config" / "routing_rules.yaml"))
 

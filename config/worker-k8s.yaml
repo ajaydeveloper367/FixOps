@@ -1,0 +1,13 @@
+# Kubernetes worker only — deploy independently; controller passes cluster_id / refs only.
+# Override path: FIXOPS_WORKER_K8S_CONFIG=/absolute/path/to/worker-k8s.yaml
+# Env vars FIXOPS_WORKER_K8S_* still override these keys when set.
+
+version: 1
+credentials_backend: local_map
+default_cluster_id: local
+
+# Local credentials map by cluster_id. Worker resolves this map internally.
+clusters:
+  local:
+    kubeconfig_path: "~/.kube/config"
+    # context: "kind-kind"

@@ -10,6 +10,7 @@ import yaml
 
 CONTROLLER_FILE = "controller.yaml"
 WORKER_OBS_FILE = "worker-obs.yaml"
+WORKER_K8S_FILE = "worker-k8s.yaml"
 
 
 def _find_named_config(file_name: str, explicit_path: str | None) -> Path | None:
@@ -47,6 +48,12 @@ def load_worker_obs_yaml() -> dict[str, Any]:
     return _load(p)
 
 
+def load_worker_k8s_yaml() -> dict[str, Any]:
+    """Flat dict from ``config/worker-k8s.yaml`` (worker-k8s service only)."""
+    p = _find_named_config(WORKER_K8S_FILE, os.environ.get("FIXOPS_WORKER_K8S_CONFIG"))
+    return _load(p)
+
+
 # Backwards-compatible names (same files).
 def controller_section() -> dict[str, Any]:
     return load_controller_yaml()
@@ -54,3 +61,7 @@ def controller_section() -> dict[str, Any]:
 
 def worker_obs_section() -> dict[str, Any]:
     return load_worker_obs_yaml()
+
+
+def worker_k8s_section() -> dict[str, Any]:
+    return load_worker_k8s_yaml()

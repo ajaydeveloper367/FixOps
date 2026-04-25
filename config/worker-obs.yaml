@@ -7,4 +7,11 @@ version: 1
 # Prometheus HTTP API (JSON). Same host as the UI, but path must be /api/v1/query — /query is the HTML UI only.
 prometheus_base_url: "http://localhost:6060"
 prometheus_query_path: "/api/v1/query"
+# Loki HTTP API (query endpoint).
+loki_base_url: "http://localhost:6061"
+loki_query_path: "/loki/api/v1/query"
+# Grafana API (health / dashboards). Credentials optional for public endpoints.
+grafana_base_url: "http://localhost:6062"
+grafana_username: "admin"
+grafana_password: "LpeBpMbrp6yh8SrwdOkk01VSRF0o5zStcHBZBO9M"
 credentials_backend: env

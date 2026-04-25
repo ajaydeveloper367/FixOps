@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import time
+
 from fixops_contract.ad006 import WorkerInvestigateRequest, WorkerResult
 
+from fixops_worker_obs.adapters.grafana import GrafanaPort
+from fixops_worker_obs.adapters.loki import LokiPort
 from fixops_worker_obs.adapters.prometheus import PrometheusPort
 
 
@@ -39,7 +43,72 @@ def _instant_query_candidates(req: WorkerInvestigateRequest) -> list[str]:
     return out
 
 
-def investigate(req: WorkerInvestigateRequest, prom: PrometheusPort) -> WorkerResult:
+def _augment_with_loki_and_grafana(
+    req: WorkerInvestigateRequest,
+    *,
+    checked: list[str],
+    findings: list[str],
+    evidence: list[str],
+    ruled_out: list[str],
+    loki: LokiPort | None,
+    grafana: GrafanaPort | None,
+) -> None:
+    ns = (req.namespace or "").strip() or "default"
+    if loki is not None:
+        expr = f'count_over_time({{namespace="{_label_value(ns)}"}}[5m])'
+        checked.append(f"loki instant query: {expr}")
+        try:
+            data = loki.query_instant(expr)
+            evidence.append(f"loki:query:{expr}")
+            if data.get("status") == "success":
+                res = (data.get("data") or {}).get("result") or []
+                findings.append(f"Loki returned {len(res)} vector sample(s) for namespace {ns!r} in last 5m")
+                end_ns = time.time_ns()
+                start_ns = end_ns - 300_000_000_000
+                stream_expr = f'{{namespace="{_label_value(ns)}"}}'
+                checked.append(f"loki range query (last 5m): {stream_expr}")
+                stream_data = loki.query_range(stream_expr, start_ns=start_ns, end_ns=end_ns, limit=20)
+                evidence.append(f"loki:query_range:{stream_expr}")
+                if stream_data.get("status") == "success":
+                    streams = (stream_data.get("data") or {}).get("result") or []
+                    sample_lines: list[str] = []
+                    for stream in streams[:3]:
+                        labels = stream.get("stream") or {}
+                        pod = labels.get("pod") or "unknown-pod"
+                        container = labels.get("container") or "unknown-container"
+                        for _ts, line in (stream.get("values") or [])[:2]:
+                            txt = str(line).strip().replace("\n", " ")
+                            if txt:
+                                sample_lines.append(f"Loki log [{pod}/{container}]: {txt[:220]}")
+                            if len(sample_lines) >= 3:
+                                break
+                        if len(sample_lines) >= 3:
+                            break
+                    if sample_lines:
+                        findings.extend(sample_lines)
+            else:
+                ruled_out.append(f"Loki query status={data.get('status')!r} for namespace {ns!r}")
+        except Exception as e:
+            ruled_out.append(f"Loki unavailable or query failed: {e}")
+
+    if grafana is not None:
+        checked.append("grafana api health: /api/health")
+        try:
+            health = grafana.health()
+            evidence.append("grafana:api:health")
+            db = health.get("database")
+            ver = health.get("version")
+            findings.append(f"Grafana health ok (database={db!r}, version={ver!r})")
+        except Exception as e:
+            ruled_out.append(f"Grafana health check failed: {e}")
+
+
+def investigate(
+    req: WorkerInvestigateRequest,
+    prom: PrometheusPort,
+    loki: LokiPort | None = None,
+    grafana: GrafanaPort | None = None,
+) -> WorkerResult:
     checked: list[str] = []
     findings: list[str] = []
     evidence: list[str] = []
@@ -85,6 +154,15 @@ def investigate(req: WorkerInvestigateRequest, prom: PrometheusPort) -> WorkerRe
             )
             conf = 0.72
 
+        _augment_with_loki_and_grafana(
+            req,
+            checked=checked,
+            findings=findings,
+            evidence=evidence,
+            ruled_out=ruled_out,
+            loki=loki,
+            grafana=grafana,
+        )
         return WorkerResult(
             checked=checked,
             findings=findings,
@@ -95,9 +173,18 @@ def investigate(req: WorkerInvestigateRequest, prom: PrometheusPort) -> WorkerRe
         )
 
     ruled_out.append("No series matched any candidate selector including count(up)")
+    _augment_with_loki_and_grafana(
+        req,
+        checked=checked,
+        findings=findings,
+        evidence=evidence,
+        ruled_out=ruled_out,
+        loki=loki,
+        grafana=grafana,
+    )
     return WorkerResult(
         checked=checked,
-        findings=["No matching series for any candidate selector"],
+        findings=findings or ["No matching series for any candidate selector"],
         evidence_refs=evidence,
         ruled_out=ruled_out,
         confidence=0.45,

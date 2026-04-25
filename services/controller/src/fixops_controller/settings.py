@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./.fixops/controller.db"
     redis_url: str | None = None
     worker_obs_base_url: str = "http://127.0.0.1:8081"
+    worker_k8s_base_url: str = "http://127.0.0.1:8083"
     executor_url: str = "http://127.0.0.1:8082"
     routing_rules_path: str = "config/routing_rules.yaml"
     inventory_seed_path: str = "config/inventory.yaml"

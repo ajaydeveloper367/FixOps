@@ -3,6 +3,7 @@
 -e packages/fixops-contract
 -e services/controller
 -e services/worker-obs
+-e services/worker-k8s
 -e services/executor
 -e services/mcp-fixops-obs
 pytest>=8.0

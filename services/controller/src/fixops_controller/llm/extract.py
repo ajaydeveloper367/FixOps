@@ -99,11 +99,32 @@ def _sanitize_llm_extracted_dict(parsed: dict[str, Any]) -> dict[str, Any]:
 
 def extract_entity_llm(normalized: dict[str, Any]) -> ExtractedEntity:
     """Call shared LLM with strict JSON schema, or deterministic mock for CI / no LLM config."""
+    # Query ingress already carries bounded synthetic entity keys (AD-013); keep this path deterministic
+    # so routing doesn't depend on an LLM rewriting synthetic_alert fields.
+    if normalized.get("source") == "query":
+        return _extract_query_synthetic(normalized)
     if settings.mock_llm or not llm_configured():
         ent = _mock_extract(normalized)
     else:
         ent = _openai_compatible_extract(normalized)
     return coalesce_extracted_from_normalized(ent, normalized)
+
+
+def _extract_query_synthetic(normalized: dict[str, Any]) -> ExtractedEntity:
+    raw = normalized.get("raw") or {}
+    syn = raw.get("synthetic_alert") or {}
+    labels = {
+        str(k): str(v)
+        for k, v in (syn.get("labels") or {}).items()
+        if k is not None and v is not None and str(k).strip() and str(v).strip()
+    }
+    return ExtractedEntity(
+        entity_type=_non_empty_str(syn.get("entity_type")) or "service",
+        entity_name=_non_empty_str(syn.get("entity_name")) or "cluster-query",
+        namespace=_non_empty_str(syn.get("namespace")),
+        alert_class=_non_empty_str(syn.get("alert_class")) or "AdHocQuery",
+        labels=labels,
+    )
 
 
 def _mock_extract(normalized: dict[str, Any]) -> ExtractedEntity:

@@ -12,6 +12,11 @@ class Settings(BaseSettings):
 
     prometheus_base_url: str | None = None
     prometheus_query_path: str = "/api/v1/query"
+    loki_base_url: str | None = None
+    loki_query_path: str = "/loki/api/v1/query"
+    grafana_base_url: str | None = None
+    grafana_username: str | None = None
+    grafana_password: str | None = None
     credentials_backend: str = "env"
 
     @model_validator(mode="before")

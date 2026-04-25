@@ -66,6 +66,33 @@ class _FakeProm:
         return r
 
 
+class _FakeLoki:
+    def query_instant(self, expr: str) -> dict[str, Any]:
+        return {
+            "status": "success",
+            "data": {"resultType": "vector", "result": [{"metric": {"namespace": "prod"}, "value": [1, "3"]}]},
+        }
+
+    def query_range(self, expr: str, *, start_ns: int, end_ns: int, limit: int = 50) -> dict[str, Any]:
+        return {
+            "status": "success",
+            "data": {
+                "resultType": "streams",
+                "result": [
+                    {
+                        "stream": {"pod": "p1", "container": "c1"},
+                        "values": [["1", "first log line"], ["2", "second log line"]],
+                    }
+                ],
+            },
+        }
+
+
+class _FakeGrafana:
+    def health(self) -> dict[str, Any]:
+        return {"database": "ok", "version": "11.x"}
+
+
 def test_investigate_uses_fallback_when_primary_empty() -> None:
     one_series = {
         "status": "success",
@@ -131,3 +158,25 @@ def test_investigate_count_up_last_resort() -> None:
     assert fake.seen[-1] == "count(up)"
     assert "count(up)" in out.findings[0] or "count(up)" in " ".join(out.findings)
     assert out.confidence == 0.62
+
+
+def test_investigate_augments_with_loki_and_grafana() -> None:
+    one_series = {
+        "status": "success",
+        "data": {"resultType": "vector", "result": [{"metric": {"job": "x"}, "value": [1, "1"]}]},
+    }
+    req = WorkerInvestigateRequest(
+        investigation_id="i1",
+        entity_type="pod",
+        entity_name="pod-a",
+        namespace="prod",
+        labels={"app": "myapp"},
+    )
+    fake = _FakeProm([one_series])
+    out = investigate(req, fake, loki=_FakeLoki(), grafana=_FakeGrafana())
+    assert any("loki instant query" in c for c in out.checked)
+    assert any("loki range query" in c for c in out.checked)
+    assert any("grafana api health" in c for c in out.checked)
+    assert any("Loki returned" in f for f in out.findings)
+    assert any("Loki log [" in f for f in out.findings)
+    assert any("Grafana health ok" in f for f in out.findings)

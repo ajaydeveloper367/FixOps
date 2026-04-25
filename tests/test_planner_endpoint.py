@@ -23,6 +23,7 @@ def _planner_api_env(monkeypatch: pytest.MonkeyPatch, repo_root: Path):
     monkeypatch.setattr(settings, "auto_approve_execute", False)
     monkeypatch.setattr(settings, "require_human_approval", True)
     monkeypatch.setattr(settings, "worker_obs_base_url", "http://worker.test")
+    monkeypatch.setattr(settings, "worker_k8s_base_url", "http://worker.test")
     monkeypatch.setattr(settings, "executor_url", "http://executor.test")
     monkeypatch.setattr(
         settings, "routing_rules_path", str(repo_root / "config" / "routing_rules.yaml")
@@ -187,3 +188,27 @@ def test_run_planned_respects_api_key(_planner_api_env, repo_root: Path, monkeyp
 def test_finalize_rejects_unknown_source():
     with pytest.raises(ValueError, match="source"):
         finalize_planned_normalized({"source": "email", "raw": {}}, fallback_summary=None)
+
+
+def test_finalize_query_fills_empty_synthetic_fields_and_local_cluster_label():
+    out = finalize_planned_normalized(
+        {
+            "source": "query",
+            "environment": "development",
+            "raw": {
+                "summary": "how many pods are failing in monitoring namespace on local cluster",
+                "synthetic_alert": {
+                    "entity_type": "",
+                    "entity_name": "",
+                    "alert_class": "",
+                    "labels": {"cluster_id": ""},
+                },
+            },
+        },
+        fallback_summary="fallback",
+    )
+    syn = out["raw"]["synthetic_alert"]
+    assert syn["entity_type"] == "service"
+    assert syn["entity_name"] == "cluster-query"
+    assert syn["alert_class"] == "AdHocQuery"
+    assert syn["labels"]["cluster_id"] == "local"
