@@ -60,7 +60,7 @@ Fallback without `uv`: `pip install -r requirements-dev.txt` (same editable pack
 
 Use `uv run` so commands always use the project `.venv`.
 
-**Terminal 1 — worker (AD-006):** reads `config/worker-obs.yaml` (Prometheus JSON API: `http://localhost:6060` + `/api/v1/query` — not `/query`, which is the HTML UI). Run from repo root or set `FIXOPS_WORKER_OBS_CONFIG`.
+**Terminal 1 — worker (AD-006):** reads `config/worker-obs.yaml` (Prometheus JSON API: `http://localhost:6060` + `/api/v1/query` — not `/query`, which is the HTML UI). Run from repo root or set `FIXOPS_WORKER_OBS_CONFIG`. For pods, `/investigate` tries several instant queries in order (`up{namespace=…}`, `job` from `labels.app`, `namespace=default`, then `count(up)`) so local dev still gets a signal when alert namespaces do not match scrape labels.
 
 ```bash
 uv run uvicorn fixops_worker_obs.app:app --host 127.0.0.1 --port 8081
@@ -157,6 +157,16 @@ Also in the repo (not counted as domain workers): **`services/executor`** (post-
 3. **Real observability** — tune `config/worker-obs.yaml` (or env) for Prometheus/Loki; optionally MCP from the worker.
 4. **RAG (AD-009)** — bounded chunks into RCA stage; pgvector or BM25 in Postgres.
 5. **Production Postgres** — checkpoints + decision log + inventory on the same DB as in Docker Compose.
+
+## CI (GitHub Actions)
+
+On push / PR: **Ruff** on `services/`, `packages/`, `tests/`; **`pytest -m "not integration"`** (fast unit suite); a separate job runs **`pytest -m integration`** (Prometheus / Postgres checks **skip** on the default runner unless you add services or secrets).
+
+Local match for the default job:
+
+```bash
+uv sync && uv run pytest -q -m "not integration"
+```
 
 ## Docker Compose
 

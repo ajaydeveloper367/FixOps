@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.14"
+      - name: Ruff
+        run: uvx ruff check services packages tests
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -13,7 +23,23 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "0.6.14"
-      - name: Install (project .venv via uv)
+          enable-cache: true
+          python-version: "3.12"
+      - name: Install (workspace .venv via uv)
         run: uv sync
-      - name: Pytest
-        run: uv run pytest -q
+      - name: Pytest (unit; excludes integration marker)
+        run: uv run pytest -q -m "not integration"
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.6.14"
+          enable-cache: true
+          python-version: "3.12"
+      - name: Install
+        run: uv sync
+      - name: Integration tests (skip unless Prom / DB reachable in runner)
+        run: uv run pytest -m integration -v --tb=short
