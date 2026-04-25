@@ -1,4 +1,4 @@
-"""HTTP ingress — alerts and bounded query intents (AD-013) share the same graph."""
+"""HTTP ingress — strict ``/run`` (AD-013) and planner ``/run-planned`` (AD-015) share the same graph."""
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from langgraph.errors import EmptyInputError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from sqlalchemy.engine.url import make_url
 
@@ -15,6 +15,7 @@ from fixops_controller.api.graph_invoke import invoke_or_interrupt, resume_threa
 from fixops_controller.db.sync_session import init_sync_schema
 from fixops_controller.graph.build import build_compiled_graph, close_checkpoint_pool
 from fixops_controller.inventory.seed import seed_inventory_and_graph
+from fixops_controller.llm.planner import plan_flexible_input, planner_mode_label
 from fixops_controller.settings import settings
 
 
@@ -55,6 +56,30 @@ class RunInvestigationRequest(BaseModel):
     )
 
 
+class RunPlannedInvestigationRequest(BaseModel):
+    """Planner-backed ingress (AD-015): NL and/or messy JSON → same ``normalized`` as strict ``/run``."""
+
+    thread_id: str | None = None
+    message: str | None = Field(
+        default=None,
+        description="Natural language alert description or operational question.",
+    )
+    payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Semi-structured webhook body or partial alert; merged by planner.",
+    )
+    environment: str | None = Field(
+        default=None,
+        description="Override default environment for the planned normalized object.",
+    )
+
+    @model_validator(mode="after")
+    def _require_message_or_payload(self):
+        if self.payload is None and (self.message is None or not str(self.message).strip()):
+            raise ValueError("Provide a non-empty message and/or payload")
+        return self
+
+
 class ResumeThreadRequest(BaseModel):
     """Payload passed to LangGraph ``Command(resume=...)`` (e.g. ``{\"granted\": true}``)."""
 
@@ -88,9 +113,42 @@ def run_investigation(
     normalized = _normalized_from_body(body)
     cfg: dict[str, Any] = {"configurable": {"thread_id": body.thread_id or "default"}}
     try:
-        return invoke_or_interrupt(graph, {"normalized": normalized}, cfg)
+        out = invoke_or_interrupt(graph, {"normalized": normalized}, cfg)
     except Exception as e:
         raise HTTPException(502, detail=str(e)) from e
+    return out
+
+
+@app.post("/v1/investigations/run-planned")
+def run_planned_investigation(
+    body: RunPlannedInvestigationRequest,
+    _: None = Depends(require_controller_api_key),
+) -> dict[str, Any]:
+    """
+    LLM or mock planner converts ``message`` / ``payload`` into canonical ``normalized``,
+    then runs the same LangGraph as ``POST /v1/investigations/run`` (no planner on strict path).
+    """
+    graph = app.state.graph
+    try:
+        normalized = plan_flexible_input(
+            message=body.message,
+            payload=body.payload,
+            default_environment=body.environment,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(502, detail=f"planner failed: {e}") from e
+    cfg: dict[str, Any] = {"configurable": {"thread_id": body.thread_id or "default"}}
+    try:
+        out = invoke_or_interrupt(graph, {"normalized": normalized}, cfg)
+    except Exception as e:
+        raise HTTPException(502, detail=str(e)) from e
+    out["planning"] = {
+        "normalized": normalized,
+        "planner_mode": planner_mode_label(),
+    }
+    return out
 
 
 def _thread_has_pending_interrupt(graph: Any, cfg: dict[str, Any]) -> bool:
@@ -119,11 +177,40 @@ def resume_investigation(
             ),
         )
     try:
-        return resume_thread(graph, body.resume, cfg)
+        out = resume_thread(graph, body.resume, cfg)
     except EmptyInputError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(502, detail=str(e)) from e
+    inv = (out.get("state") or {}).get("investigation_id") or thread_id
+    _audit_hil_api_resume(
+        investigation_id=str(inv),
+        thread_id=thread_id,
+        resume=dict(body.resume),
+        graph_status=str(out.get("status") or ""),
+    )
+    return out
+
+
+def _audit_hil_api_resume(
+    *,
+    investigation_id: str,
+    thread_id: str,
+    resume: dict[str, Any],
+    graph_status: str,
+) -> None:
+    """Persist HTTP-level resume (AD-003 audit); uses late import so tests can patch ``sync_session``."""
+    from fixops_controller.db.sync_session import append_decision_sync
+
+    append_decision_sync(
+        investigation_id,
+        "hil_api_resume",
+        {
+            "thread_id": thread_id,
+            "resume": resume,
+            "graph_status": graph_status,
+        },
+    )
 
 
 @app.get("/v1/threads/{thread_id}/snapshot")

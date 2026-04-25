@@ -17,8 +17,12 @@ dependencies = [
     "pydantic-settings>=2.2",
 ]
 
+[project.optional-dependencies]
+terminal = ["rich>=13.7"]
+
 [project.scripts]
 fixops-controller = "fixops_controller.main:run"
+fixops-show = "fixops_controller.cli.show:main"
 
 [build-system]
 requires = ["hatchling"]

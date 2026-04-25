@@ -30,7 +30,11 @@ class GraphEdge(Base):
 
 
 class DecisionLogEntry(Base):
-    """Durable audit trail — not only ephemeral JSONL (prod requirement)."""
+    """Durable audit trail — not only ephemeral JSONL (prod requirement).
+
+    Graph nodes append many ``step`` values; HTTP ``POST .../resume`` appends ``hil_api_resume``
+    with ``payload``: ``thread_id``, ``resume``, ``graph_status``.
+    """
 
     __tablename__ = "decision_log"
 

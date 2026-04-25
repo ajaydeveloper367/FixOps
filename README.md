@@ -115,7 +115,37 @@ jq -n --slurpfile n fixtures/alert_pod_crash.json '{thread_id:"demo-1", normaliz
   | curl -sS -X POST http://127.0.0.1:8080/v1/investigations/run -H 'Content-Type: application/json' -d @- | python3 -m json.tool
 ```
 
-If **`controller_api_key`** is set in `config/controller.yaml` (or **`FIXOPS_CONTROLLER_API_KEY`**), add **`Authorization: Bearer <key>`** or **`X-API-Key: <key>`** to **`/v1/investigations/run`**, **`/v1/threads/.../resume`**, and **`/v1/threads/.../snapshot`**. **`/healthz`** stays open for probes.
+When **Prometheus** already has **`up`** samples in **`namespace="monitoring"`** (for example **node-exporter**), **worker-obs** usually matches on the **first** probe (`up{namespace="monitoring"}`) and returns **higher confidence** than namespaces with no series:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/investigations/run \
+  -H 'Content-Type: application/json' \
+  -d '{"thread_id":"mon-node-exp-1","normalized":{"source":"alert","environment":"development","raw":{"alertname":"TargetDown","namespace":"monitoring","pod":"monitoring-prometheus-node-exporter-6lwrb","labels":{"entity_type":"pod","app":"node-exporter"}}}}' | python3 -m json.tool
+```
+
+**Planner ingress** (natural language or messy JSON → same graph as above; see **AD-015** in `context/comparison/DECISIONS.md`):
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/investigations/run-planned \
+  -H 'Content-Type: application/json' \
+  -d '{"thread_id":"demo-planned-1","message":"PodCrashLoopBackOff on checkout in prod"}' | python3 -m json.tool
+```
+
+The JSON body includes optional **`payload`** (object) alongside **`message`**. The response adds **`planning`**: **`normalized`** the planner produced and **`planner_mode`** (`mock` or `llm`).
+
+**Terminal demo (Rich, separate from the API):** pipe the **full JSON** response into **`fixops-show`** (dev deps include Rich, or `pip install 'fixops-controller[terminal]'`). It draws boxed sections (alert, checks, evidence, conclusion, actions) from **`state`** / **`interrupts`**:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/investigations/run \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer my-local-dev-key' \
+  -d '{"thread_id":"demo-rich","normalized":{"source":"alert","environment":"development","raw":{"alertname":"TargetDown","namespace":"monitoring","pod":"x","labels":{"entity_type":"pod","app":"node-exporter"}}}}' \
+  | uv run fixops-show
+```
+
+Or **`uv run fixops-show response.json`**. Use **`--no-color`** when capturing to a file. For machine-only use, keep **`curl ... | python3 -m json.tool`**.
+
+If **`controller_api_key`** is set in `config/controller.yaml` (or **`FIXOPS_CONTROLLER_API_KEY`**), add **`Authorization: Bearer <key>`** or **`X-API-Key: <key>`** to **`/v1/investigations/run`**, **`/v1/investigations/run-planned`**, **`/v1/threads/.../resume`**, and **`/v1/threads/.../snapshot`**. **`/healthz`** stays open for probes.
 
 If **`detail`** mentions **`Expecting value`** or **empty message content**, the controller reached **Ollama** but the model returned **empty or non-JSON** text; keep **`ollama serve`**, try another model, or set **`mock_llm: true`** in `config/controller.yaml` to test the rest of the pipeline without the LLM.
 
@@ -133,6 +163,8 @@ curl -sS -X POST "http://127.0.0.1:8080/v1/threads/demo-1/resume" \
 ```
 
 **Debug checkpoint:** `GET http://127.0.0.1:8080/v1/threads/{thread_id}/snapshot`
+
+Each successful **`POST /v1/threads/{thread_id}/resume`** appends a **`decision_log`** row with **`step`: `hil_api_resume`** (payload includes `thread_id`, `resume`, `graph_status`) for audit / compliance.
 
 For local one-shot runs without a second HTTP call, set **`require_human_approval: false`** in `config/controller.yaml`.
 

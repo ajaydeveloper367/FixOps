@@ -79,6 +79,31 @@ def test_prometheus_instant_api_up_has_targets():
     )
 
 
+def test_prometheus_up_namespace_monitoring_has_series_when_present():
+    """
+    Local / kind stacks often scrape node-exporter in ``monitoring``; worker-obs tries
+    ``up{namespace="<ns>"}`` first for pod-shaped alerts.
+    """
+    base, path = _build_query_url()
+    url = f"{base}{path}"
+    q = 'up{namespace="monitoring"}'
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r = client.get(url, params={"query": q})
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        pytest.skip(f"Prometheus not reachable at {url}: {e}")
+
+    data = _assert_json_not_ui(r, url)
+    assert data.get("status") == "success", data
+    res = (data.get("data") or {}).get("result") or []
+    if not res:
+        pytest.skip(
+            "No series for up{namespace=\"monitoring\"} — skip when this namespace is not scraped "
+            "(e.g. empty dev Prometheus). Deploy node-exporter under monitoring to exercise this path."
+        )
+    assert len(res) >= 1
+
+
 def test_worker_http_prometheus_adapter_matches_config():
     """Same code path as ``worker-obs`` for instant queries."""
     cfg = load_worker_obs_yaml()

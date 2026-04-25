@@ -200,6 +200,20 @@ reports, service READMEs, DAG docs, and monitoring runbooks. **Bounded** injecti
 
 ---
 
+### AD-015 · Dual HTTP ingress: strict vs planner-backed
+
+**Decision**: Keep **`POST /v1/investigations/run`** for **already-normalized** payloads (no ingress LLM). Add **`POST /v1/investigations/run-planned`** for **natural language** and/or **messy partial JSON**: a **planner** (mock in CI, shared LLM when configured) emits the same `normalized` object, then the **identical LangGraph** runs. Responses include **`planning.normalized`** and **`planning.planner_mode`** for audit.
+
+**Why**: Integrations that speak the contract avoid planner cost and non-determinism; humans and legacy systems get one front door without forking the pipeline.
+
+**Rejected alternatives**: Single endpoint with optional planner flag (harder to reason about auth and SLOs); separate microservice for planning only (extra hop for v1).
+
+**Status**: LOCKED (pattern). Planner heuristics and prompts may evolve.
+
+**Date**: 2026-04-25
+
+---
+
 ## Open Questions
 
 | # | Question | Resolve before |
@@ -305,4 +319,4 @@ flowchart TB
 
 ---
 
-*Infinity-Sentinel / FixOps · Last updated: 2026-04-24*
+*Infinity-Sentinel / FixOps · Last updated: 2026-04-25*

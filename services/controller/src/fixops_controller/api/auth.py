@@ -14,7 +14,7 @@ def require_controller_api_key(
     authorization: Annotated[str | None, Header()] = None,
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
 ) -> None:
-    """When ``controller_api_key`` is set, require ``Authorization: Bearer <key>`` or ``X-API-Key``."""
+    """When ``controller_api_key`` is set, require ``Authorization: Bearer <key>`` or ``X-API-Key`` on run routes."""
     expected = (settings.controller_api_key or "").strip()
     if not expected:
         return

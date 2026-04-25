@@ -38,6 +38,7 @@ dev = [
     "httpx>=0.27",
     "respx>=0.21",
     "mcp-fixops-obs",
+    "rich>=13.7",
 ]
 
 [tool.pytest.ini_options]

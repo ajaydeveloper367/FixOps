@@ -63,6 +63,40 @@ def _non_empty_str(v: Any) -> str | None:
     return s or None
 
 
+def _clean_llm_labels(obj: Any) -> dict[str, str]:
+    """LLMs often emit null values or empty keys; ``ExtractedEntity.labels`` is ``dict[str, str]`` only."""
+    if not isinstance(obj, dict):
+        return {}
+    out: dict[str, str] = {}
+    for k, v in obj.items():
+        if k is None:
+            continue
+        ks = str(k).strip()
+        if not ks:
+            continue
+        if v is None:
+            continue
+        if isinstance(v, (dict, list)):
+            out[ks] = json.dumps(v, default=str)[:512]
+        else:
+            vs = str(v).strip()
+            if vs:
+                out[ks] = vs
+    return out
+
+
+def _sanitize_llm_extracted_dict(parsed: dict[str, Any]) -> dict[str, Any]:
+    """Coerce OpenAI-style JSON into values ``ExtractedEntity`` accepts."""
+    p = dict(parsed)
+    p["labels"] = _clean_llm_labels(p.get("labels"))
+    # Use "" when missing so ``coalesce_extracted_from_normalized`` can still fill from ``raw``.
+    p["entity_type"] = _non_empty_str(p.get("entity_type")) or ""
+    p["entity_name"] = _non_empty_str(p.get("entity_name")) or ""
+    p["namespace"] = _non_empty_str(p.get("namespace"))
+    p["alert_class"] = _non_empty_str(p.get("alert_class"))
+    return p
+
+
 def extract_entity_llm(normalized: dict[str, Any]) -> ExtractedEntity:
     """Call shared LLM with strict JSON schema, or deterministic mock for CI / no LLM config."""
     if settings.mock_llm or not llm_configured():
@@ -108,4 +142,6 @@ def _openai_compatible_extract(normalized: dict[str, Any]) -> ExtractedEntity:
         {"role": "user", "content": f"JSON Schema: {json.dumps(schema_hint)[:4000]}"},
     ]
     parsed = chat_completion_json(messages)
-    return ExtractedEntity.model_validate(parsed)
+    if not isinstance(parsed, dict):
+        raise ValueError("extract LLM returned non-object JSON")
+    return ExtractedEntity.model_validate(_sanitize_llm_extracted_dict(parsed))

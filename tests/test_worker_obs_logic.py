@@ -87,6 +87,26 @@ def test_investigate_uses_fallback_when_primary_empty() -> None:
     assert len(fake.seen) >= 4
 
 
+def test_investigate_monitoring_pod_hits_namespace_selector_first() -> None:
+    """When ``up{namespace=\"monitoring\"}`` returns data, confidence is high (first match)."""
+    one_series = {
+        "status": "success",
+        "data": {"resultType": "vector", "result": [{"metric": {"job": "node-exporter"}, "value": [1, "1"]}]},
+    }
+    req = WorkerInvestigateRequest(
+        investigation_id="i-mon",
+        entity_type="pod",
+        entity_name="monitoring-prometheus-node-exporter-6lwrb",
+        namespace="monitoring",
+        labels={"entity_type": "pod", "app": "node-exporter"},
+    )
+    fake = _FakeProm([one_series])
+    out = investigate(req, fake)
+    assert fake.seen[0] == 'up{namespace="monitoring"}'
+    assert out.confidence == 0.82
+    assert "Found 1 series for selector" in out.findings[0]
+
+
 def test_investigate_count_up_last_resort() -> None:
     empty = {"status": "success", "data": {"resultType": "vector", "result": []}}
     count_vec = {

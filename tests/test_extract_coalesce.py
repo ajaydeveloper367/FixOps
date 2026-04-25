@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 from fixops_contract.entities import ExtractedEntity
 
-from fixops_controller.llm.extract import coalesce_extracted_from_normalized
+from fixops_controller.llm.extract import (
+    _sanitize_llm_extracted_dict,
+    coalesce_extracted_from_normalized,
+)
 
 
 def test_coalesce_fills_entity_name_from_pod_and_namespace_from_raw() -> None:
@@ -88,3 +91,26 @@ def test_extract_entity_llm_coalesces_after_llm_json(monkeypatch: pytest.MonkeyP
     assert out.namespace == "prod"
     assert out.alert_class == "PodCrashLoopBackOff"
     assert out.labels["app"] == "checkout-api"
+
+
+def test_sanitize_llm_extracted_strips_null_and_empty_label_keys() -> None:
+    """Ollama/OpenAI sometimes emit null label values or \"\" keys — must validate."""
+    raw = {
+        "entity_type": "pod",
+        "entity_name": "p-1",
+        "namespace": "prod",
+        "alert_class": "PodCrashLoopBackOff",
+        "labels": {
+            "app": "checkout-api",
+            "empty": None,
+            "": None,
+            "nested": {"k": 1},
+        },
+    }
+    clean = _sanitize_llm_extracted_dict(raw)
+    ent = ExtractedEntity.model_validate(clean)
+    assert ent.labels["app"] == "checkout-api"
+    assert "empty" not in ent.labels
+    assert "" not in ent.labels
+    assert "nested" in ent.labels
+    assert "k" in ent.labels["nested"]
